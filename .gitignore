@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.blend1
+*.blend2
+.DS_Store
+
+# Personal-machine MCP client config (e.g. Blender MCP), not part of the addon itself
+.mcp.json
+
+# Machine-specific VS Code / Blender Development extension settings
+# (hardcodes local paths like the Python interpreter and Blender executable)
+.vscode/

@@ -1,0 +1,28 @@
+[English](README.md) | [繁體中文](README.zh-TW.md)
+
+# ParaRig
+
+A Blender add-on (Python package) that auto-generates draggable slider rigs and Drivers from a simple list, so you don't have to hand-build Empties, constraints, and driver expressions every time you want a Live2D-style parameter panel for your character.
+
+Fill in a list of sliders — name, group, control style (vertical/horizontal drag), target (Shape Key / custom property / bone location), value range — and click **Generate** to get:
+
+1. A visual slider control per entry: a flat 2D rectangular track + a draggable circular handle, grouped inside a resizable/movable "Frame" per group, laid out on a fixed-size grid.
+2. A driver on the target property that maps the handle's drag position linearly to `[min_val, max_val]`.
+
+## Installation
+
+1. Edit > Preferences > Add-ons > Install, select the `para_rig` folder (zipped) or point Blender at it directly, then enable it.
+2. Open the N-panel in the 3D Viewport, go to the **ParaRig** tab.
+
+## Usage
+
+1. Add slider entries with the `+` button, filling in each one's group, control style, target type/object, and value range.
+2. Click **生成滑桿綁定 (Generate)**. Sliders are grouped by their `group` field — one Frame per group — and everything is placed in a dedicated "ParaRig" collection. Re-running Generate after editing the list is non-destructive: it updates in place instead of resetting handle positions or Frame transforms you've adjusted.
+3. Drag a slider's circular handle along its locked axis to drive the bound value.
+4. Click **清除已生成的滑桿 (Clear)** to remove everything and start over.
+
+## Status
+
+Actively evolving — see [`para-rig-progress.md`](para-rig-progress.md) for the full architecture history, known limitations, and a backlog of discussed-but-not-yet-implemented features (a 2D XY-pad control style, one-to-many slider→target mapping, JSON import/export).
+
+See [`CLAUDE.md`](CLAUDE.md) for codebase orientation aimed at AI coding agents.
