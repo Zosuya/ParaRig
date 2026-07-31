@@ -23,6 +23,4 @@ Fill in a list of sliders — name, group, control style (vertical/horizontal dr
 
 ## Status
 
-Actively evolving — see [`para-rig-progress.md`](para-rig-progress.md) for the full architecture history, known limitations, and a backlog of discussed-but-not-yet-implemented features (a 2D XY-pad control style, one-to-many slider→target mapping, JSON import/export).
-
-See [`CLAUDE.md`](CLAUDE.md) for codebase orientation aimed at AI coding agents.
+Actively evolving. Licensed under GPL-3.0-or-later — see [`LICENSE`](LICENSE).

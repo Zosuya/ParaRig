@@ -23,6 +23,4 @@
 
 ## 狀態
 
-持續開發中——完整的架構演進歷程、已知限制、以及討論過但尚未實作的功能清單（2D XY 拖拽板、一對多映射、JSON 匯出入），請見 [`para-rig-progress.md`](para-rig-progress.md)。
-
-給 AI coding agent 使用的程式碼庫導覽，請見 [`CLAUDE.md`](CLAUDE.md)。
+持續開發中。採用 GPL-3.0-or-later 授權——詳見 [`LICENSE`](LICENSE)。

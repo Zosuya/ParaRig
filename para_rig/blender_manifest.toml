@@ -6,6 +6,7 @@ name = "ParaRig"
 tagline = "Auto-generate draggable slider rigs and Drivers, Live2D Cubism-style"
 maintainer = "Zosuya <pararig@zusuya.cc>"
 type = "add-on"
+website = "https://github.com/Wanstagram/para-rig"
 
 license = [
   "SPDX:GPL-3.0-or-later",
