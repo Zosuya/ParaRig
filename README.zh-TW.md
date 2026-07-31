@@ -2,6 +2,8 @@
 
 # ParaRig
 
+![ParaRig](docs/images/featured-image.png)
+
 一個 Blender 插件（Python package），能從一份簡單的清單自動生成可拖拽的滑桿控制器與 Driver 綁定，讓你不用每次想要做 Live2D 風格的角色參數面板時，都手動組裝 Empty、約束（constraint）跟 Driver 表達式。
 
 在清單裡填好每個滑桿的欄位——名稱、分組、控制樣式（直向/橫向拖拽）、目標（Shape Key／自訂屬性／骨骼位置）、數值範圍——按下 **生成** 就能得到：

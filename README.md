@@ -2,6 +2,8 @@
 
 # ParaRig
 
+![ParaRig](docs/images/featured-image.png)
+
 A Blender add-on (Python package) that auto-generates draggable slider rigs and Drivers from a simple list, so you don't have to hand-build Empties, constraints, and driver expressions every time you want a Live2D-style parameter panel for your character.
 
 Fill in a list of sliders — name, group, control style (vertical/horizontal drag), target (Shape Key / custom property / bone location), value range — and click **Generate** to get:
