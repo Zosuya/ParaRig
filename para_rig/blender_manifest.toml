@@ -3,7 +3,7 @@ schema_version = "1.0.0"
 id = "para_rig"
 version = "0.1.0"
 name = "ParaRig"
-tagline = "Auto-generate draggable slider rigs and Drivers, Live2D Cubism-style"
+tagline = "Auto-generate draggable slider rigs and Driver bindings"
 maintainer = "Zosuya <pararig@zusuya.cc>"
 type = "add-on"
 website = "https://github.com/Zosuya/para-rig"
@@ -12,6 +12,6 @@ license = [
   "SPDX:GPL-3.0-or-later",
 ]
 
-blender_version_min = "4.0.0"
+blender_version_min = "4.2.0"
 
 tags = ["Rigging", "Animation"]

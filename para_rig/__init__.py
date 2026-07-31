@@ -2,7 +2,7 @@ bl_info = {
     "name": "ParaRig",
     "author": "Zosuya",
     "version": (0, 1, 0),
-    "blender": (4, 0, 0),
+    "blender": (4, 2, 0),
     "location": "View3D > N-Panel > ParaRig",
     "description": "自動生成可拖拽的滑桿控制器,並用Driver綁定到Shape Key / 自訂屬性 / 骨骼位置",
     "category": "Rigging",
