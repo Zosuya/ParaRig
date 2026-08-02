@@ -19,9 +19,9 @@ Fill in a list of sliders — name, group, control style (vertical/horizontal dr
 ## Usage
 
 1. Add slider entries with the `+` button, filling in each one's group, control style, target type/object, and value range.
-2. Click **生成滑桿綁定 (Generate)**. Sliders are grouped by their `group` field — one Frame per group — and everything is placed in a dedicated "ParaRig" collection. Re-running Generate after editing the list is non-destructive: it updates in place instead of resetting handle positions or Frame transforms you've adjusted.
+2. Click **Generate Slider Rig**. Sliders are grouped by their `group` field — one Frame per group — and everything is placed in a dedicated "ParaRig" collection. Re-running Generate after editing the list is non-destructive: it updates in place instead of resetting handle positions or Frame transforms you've adjusted.
 3. Drag a slider's circular handle along its locked axis to drive the bound value.
-4. Click **清除已生成的滑桿 (Clear)** to remove everything and start over.
+4. Click **Clear Generated Sliders** to remove everything and start over.
 
 ## Status
 
