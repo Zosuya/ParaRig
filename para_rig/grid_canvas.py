@@ -12,6 +12,7 @@ import math
 import bpy
 import blf
 import gpu
+from bpy.app.translations import pgettext_iface as _
 from gpu_extras.batch import batch_for_shader
 
 from .grid_layout import (
@@ -43,9 +44,13 @@ PANEL_TOP_MARGIN = 34
 PANEL_RIGHT_MARGIN = 50
 PANEL_BOTTOM_MARGIN = 50
 
-TITLE_TEXT = "編輯排版"
+# 原文字串留在函式呼叫端當場查表(見draw_callback),不要在模組載入時
+# 就固定成字串常數——bpy.app.translations是依「當下」的介面語言查表,
+# 模組層級常數只會在import當下求值一次,之後使用者切換Blender介面語言
+# 不會讓已經算好的常數跟著變。
+TITLE_TEXT = "Edit Layout"
 TITLE_SIZE = 32
-HINT_TEXT = "點擊右鍵或ESC離開"
+HINT_TEXT = "Right-click or press ESC to exit"
 HINT_SIZE = 24
 TITLE_GAP = 12  # 標題列跟面板外框上緣之間的垂直間距
 
@@ -486,9 +491,11 @@ def draw_callback():
     title_size = TITLE_SIZE * scale
     hint_size = HINT_SIZE * scale
     title_y = panel_y1 + TITLE_GAP * scale
-    _draw_text(TITLE_TEXT, panel_x0, title_y, size=title_size, color=(1.0, 1.0, 1.0, 1.0))
-    hint_w = _text_width(HINT_TEXT, hint_size)
-    _draw_text(HINT_TEXT, panel_x1 - hint_w, title_y,
+    title_text = _(TITLE_TEXT)
+    hint_text = _(HINT_TEXT)
+    _draw_text(title_text, panel_x0, title_y, size=title_size, color=(1.0, 1.0, 1.0, 1.0))
+    hint_w = _text_width(hint_text, hint_size)
+    _draw_text(hint_text, panel_x1 - hint_w, title_y,
                size=hint_size, color=(0.75, 0.75, 0.75, 0.9))
 
     # 不透明底色,避免看穿3D場景干擾判斷格子狀態

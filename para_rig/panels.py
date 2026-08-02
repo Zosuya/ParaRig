@@ -1,5 +1,6 @@
 """N面板UI:分組清單 + 滑桿清單UIList + 詳細設定/生成按鈕的Panel。"""
 
+from bpy.app.translations import pgettext_iface as _
 from bpy.types import Panel, UIList, Menu
 
 from . import rig_builder
@@ -72,6 +73,7 @@ def _target_object_names(item):
     return names
 
 
+
 def _data_names(item):
     axes = rig_builder.axes_for(item.control_style)
     if not axes:
@@ -121,7 +123,7 @@ def _draw_target_binding(layout, binding):
         if binding.target_object and binding.target_object.type == 'ARMATURE':
             layout.prop_search(binding, "bone_name", binding.target_object.pose, "bones")
         else:
-            layout.label(text="請先指定Armature物件", icon='ERROR')
+            layout.label(text=_("Please specify an Armature object first"), icon='ERROR')
         layout.prop(binding, "bone_axis")
     elif binding.target_type == 'SHAPE_KEY':
         if binding.target_object and binding.target_object.data and getattr(binding.target_object.data, "shape_keys", None):
@@ -143,13 +145,13 @@ class SLIDERRIG_MT_group_picker(Menu):
     的name本身,沒辦法「顯示name、寫入另一個欄位」,所以分組選擇改成這個menu
     搭配sliderrig.set_item_group operator。"""
     bl_idname = "SLIDERRIG_MT_group_picker"
-    bl_label = "選擇分組"
+    bl_label = "Select Group"
 
     def draw(self, context):
         layout = self.layout
         groups = context.scene.slider_groups
         if not groups:
-            layout.label(text="尚未建立任何分組", icon='ERROR')
+            layout.label(text=_("No groups created yet"), icon='ERROR')
             return
         for group in groups:
             layout.operator(
@@ -162,7 +164,7 @@ class SLIDERRIG_PT_item_columns_filter(Panel):
     顯示分組/目標物件/資料名稱欄。「名稱」欄本身兼作選取/重新命名該列的
     主要欄位,不開放關閉,所以這裡只列另外三個。"""
     bl_idname = "SLIDERRIG_PT_item_columns_filter"
-    bl_label = "顯示欄位"
+    bl_label = "Show Columns"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_options = {'INSTANCED'}
@@ -176,7 +178,7 @@ class SLIDERRIG_PT_item_columns_filter(Panel):
 
 
 class SLIDERRIG_PT_panel(Panel):
-    bl_label = "ParaRig 自動生成"
+    bl_label = "ParaRig"
     bl_idname = "SLIDERRIG_PT_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -192,10 +194,10 @@ class SLIDERRIG_PT_panel(Panel):
         # 「更新」既有的rig(非破壞性upsert,見operators.py),不是從零開始
         # 生成;按鈕文字/icon依這個狀態動態調整,operator本身的行為不變。
         already_generated = any(item.generated_empty for item in scene.slider_rig_items)
-        generate_label = "更新滑桿綁定" if already_generated else "生成滑桿綁定"
+        generate_label = _("Update Slider Rig") if already_generated else _("Generate Slider Rig")
         generate_icon = 'FILE_REFRESH' if already_generated else 'PLAY'
         layout.operator("sliderrig.generate", text=generate_label, icon=generate_icon)
-        layout.operator("sliderrig.clear", icon='TRASH')
+        layout.operator("sliderrig.clear", text=_("Clear Generated Sliders"), icon='TRASH')
         layout.separator()
 
         # --- 分組(Groups)清單:比照Bone Collections的操作手感 -------------------
@@ -205,7 +207,7 @@ class SLIDERRIG_PT_panel(Panel):
         # 屬性)。
         header = layout.box().row()
         header.alignment = 'CENTER'
-        header.label(text="分組 (Groups)")
+        header.label(text=_("Groups"))
         layout.separator(factor=0.5)
         row = layout.row()
         row.template_list(
@@ -240,7 +242,7 @@ class SLIDERRIG_PT_panel(Panel):
             # 套用,不用整個Clear+Generate。
             gbox.operator(
                 "sliderrig.align_frame_to_view", icon='CAMERA_DATA',
-                text="將此面板對準當前視圖",
+                text=_("Align Panel to Current View"),
             )
 
         layout.separator()
@@ -250,18 +252,18 @@ class SLIDERRIG_PT_panel(Panel):
         # 手法跟上面「分組 (Groups)」標題一致。
         header = layout.box().row()
         header.alignment = 'CENTER'
-        header.label(text="滑桿")
+        header.label(text=_("Sliders"))
         layout.separator(factor=0.5)
 
         filter_row = layout.row(align=True)
-        filter_row.prop(scene, "slider_rig_show_all_groups", text="顯示所有分組的滑桿")
+        filter_row.prop(scene, "slider_rig_show_all_groups", text=_("Show Sliders From All Groups"))
         filter_row.popover("SLIDERRIG_PT_item_columns_filter", text="", icon='FILTER')
 
         # 排布編輯(sliderrig.edit_grid_layout)只依賴目前選中的分組
         # (scene.slider_group_index),不依賴選中哪個滑桿項目,所以放在清單
         # 上方、跟單一滑桿的詳細設定box分開,對「這個分組底下所有滑桿」的
         # 排版一次編輯,不用先選單一項目才找得到這個按鈕。
-        layout.operator("sliderrig.edit_grid_layout", icon='GRID', text="編輯排版")
+        layout.operator("sliderrig.edit_grid_layout", icon='GRID', text=_("Edit Layout"))
 
         row = layout.row()
         row.template_list(
@@ -298,7 +300,7 @@ class SLIDERRIG_PT_panel(Panel):
                 # label_size/label_size_raw(跟其他樣式的名稱標籤共用同一組
                 # 欄位),但這裡沒有「開關」的意義(文字本身就是內容,不是
                 # 額外附加的標籤),所以只畫大小欄,不畫show_label開關。
-                box.prop(item, "label_size", text="文字大小")
+                box.prop(item, "label_size", text=_("Text Size"))
             else:
                 # 目標綁定:1D樣式只需要一組(target_bindings[0]),XY_2D需要
                 # X/Y兩組獨立的綁定,各自用一個子box區隔、標示是哪一軸——見
@@ -322,16 +324,17 @@ class SLIDERRIG_PT_panel(Panel):
                     if binding is not None:
                         _draw_target_binding(box, binding)
                     else:
-                        box.label(text="目標設定尚未初始化,請重新整理面板", icon='INFO')
+                        box.label(text=_("Target settings not initialized yet — please refresh the panel"), icon='INFO')
                 else:
                     for i, transform_type in enumerate(axes):
                         abox = box.box()
-                        abox.label(text=f"{axis_labels.get(transform_type, transform_type)}軸目標")
+                        axis = axis_labels.get(transform_type, transform_type)
+                        abox.label(text=_("{axis} Axis Target").format(axis=axis))
                         binding = properties.peek_binding(item, i)
                         if binding is not None:
                             _draw_target_binding(abox, binding)
                         else:
-                            abox.label(text="目標設定尚未初始化,請重新整理面板", icon='INFO')
+                            abox.label(text=_("Target settings not initialized yet — please refresh the panel"), icon='INFO')
 
                 label_row = box.row(align=True)
                 label_row.prop(item, "show_label")

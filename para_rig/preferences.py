@@ -25,10 +25,11 @@ class SliderRigAddonPreferences(AddonPreferences):
     bl_idname = __package__
 
     grid_canvas_ui_scale: EnumProperty(
-        name="編輯排版畫布UI大小",
-        description="調整「編輯排版」畫布(3D Viewport裡的格子編輯介面)的顯示大小,"
-        "跟系統/Blender本身的UI Scale設定相乘——不同螢幕解析度或系統縮放的電腦"
-        "可以各自再微調,不用共用同一個絕對像素大小",
+        name="Edit Layout Canvas UI Size",
+        description="Adjusts the display size of the \"Edit Layout\" canvas (the grid-editing overlay "
+        "in the 3D Viewport), multiplied against the system/Blender UI Scale setting — lets machines "
+        "with different screen resolutions or system scaling fine-tune independently, instead of "
+        "sharing one absolute pixel size",
         items=_SCALE_ITEMS,
         default='100',
     )

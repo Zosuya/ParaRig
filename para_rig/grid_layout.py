@@ -7,6 +7,8 @@
 grid_y數字愈大代表愈往下(跟現有排版的「往下堆疊」方向一致)。
 """
 
+from bpy.app.translations import pgettext_iface as _
+
 from .mesh_builders import CELL_SIZE
 
 # 每種control_style佔用的格數 (width_cells, height_cells)。
@@ -70,8 +72,9 @@ def find_grid_conflicts(groups, group_labels):
                 if cell in occupied_by:
                     other = occupied_by[cell]
                     conflicts.append(
-                        f"「{label}」裡的 {other.name} 與 {item.name} "
-                        f"在格子 ({cell[0]}, {cell[1]}) 重疊"
+                        _("\"{label}\": {a} and {b} overlap at cell ({x}, {y})").format(
+                            label=label, a=other.name, b=item.name, x=cell[0], y=cell[1]
+                        )
                     )
                 else:
                     occupied_by[cell] = item

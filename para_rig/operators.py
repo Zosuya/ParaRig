@@ -5,6 +5,7 @@
 import uuid
 
 import bpy
+from bpy.app.translations import pgettext_iface as _
 from bpy.props import FloatProperty, EnumProperty
 from bpy.types import Operator
 from mathutils import Vector
@@ -34,7 +35,7 @@ def _move_in_collection(collection, index, direction):
 
 class SLIDERRIG_OT_add_item(Operator):
     bl_idname = "sliderrig.add_item"
-    bl_label = "新增滑桿項目"
+    bl_label = "Add Slider Item"
 
     def execute(self, context):
         scene = context.scene
@@ -86,7 +87,7 @@ class SLIDERRIG_OT_add_item(Operator):
 
 class SLIDERRIG_OT_remove_item(Operator):
     bl_idname = "sliderrig.remove_item"
-    bl_label = "移除滑桿項目"
+    bl_label = "Remove Slider Item"
 
     def execute(self, context):
         items = context.scene.slider_rig_items
@@ -102,7 +103,7 @@ class SLIDERRIG_OT_remove_item(Operator):
 
 class SLIDERRIG_OT_move_item(Operator):
     bl_idname = "sliderrig.move_item"
-    bl_label = "移動滑桿項目"
+    bl_label = "Move Slider Item"
 
     direction: EnumProperty(items=MOVE_DIRECTION_ITEMS)
 
@@ -120,8 +121,8 @@ class SLIDERRIG_OT_edit_grid_layout(Operator):
     滑桿項目——不同分組的格子座標系統各自獨立,混在同一張畫布上編輯沒有
     意義。拖曳/互換/擴充的結果直接寫回item.grid_x/grid_y,不接Undo。"""
     bl_idname = "sliderrig.edit_grid_layout"
-    bl_label = "編輯排版"
-    bl_description = "在3D Viewport裡用拖曳的方式調整所選分組內滑桿的格子位置"
+    bl_label = "Edit Layout"
+    bl_description = "Drag sliders within the selected group to adjust their grid position, directly in the 3D Viewport"
 
     _handle = None
 
@@ -244,14 +245,14 @@ class SLIDERRIG_OT_edit_grid_layout(Operator):
 
     def invoke(self, context, event):
         if context.area.type != 'VIEW_3D':
-            self.report({'WARNING'}, "請在3D Viewport裡執行")
+            self.report({'WARNING'}, _("Must be run inside the 3D Viewport"))
             return {'CANCELLED'}
 
         scene = context.scene
         groups = scene.slider_groups
         g_idx = scene.slider_group_index
         if not (0 <= g_idx < len(groups)):
-            self.report({'WARNING'}, "請先在Groups清單裡選取一個分組")
+            self.report({'WARNING'}, _("Please select a group in the Groups list first"))
             return {'CANCELLED'}
 
         grid_canvas.reset_for_group(context, groups[g_idx].uid)
@@ -271,7 +272,7 @@ class SLIDERRIG_OT_set_item_group(Operator):
     選單呼叫,取代原本的prop_search(prop_search只能顯示/寫入name字串,無法
     顯示name但寫入group_uid,所以分組選擇改成這個menu+operator的組合)。"""
     bl_idname = "sliderrig.set_item_group"
-    bl_label = "指派分組"
+    bl_label = "Assign Group"
     bl_options = {'INTERNAL'}
 
     group_uid: bpy.props.StringProperty()
@@ -287,7 +288,7 @@ class SLIDERRIG_OT_set_item_group(Operator):
 
 class SLIDERRIG_OT_add_group(Operator):
     bl_idname = "sliderrig.add_group"
-    bl_label = "新增分組"
+    bl_label = "Add Group"
 
     def execute(self, context):
         groups = context.scene.slider_groups
@@ -300,12 +301,12 @@ class SLIDERRIG_OT_add_group(Operator):
 
 class SLIDERRIG_OT_remove_group(Operator):
     bl_idname = "sliderrig.remove_group"
-    bl_label = "移除分組"
+    bl_label = "Remove Group"
     bl_description = (
-        "只移除Groups清單裡的這一筆,不會動到已經指派這個分組的滑桿項目"
-        "(它們的group_uid仍然指向這個已刪除的uid,UI上會顯示「未指定分組」,"
-        "generate()會把它們視為一個獨立的、看不到名稱的分組——之後如果要"
-        "重新指派,得手動幫它們選一個新分組)"
+        "Only removes this entry from the Groups list; sliders already assigned to it are untouched "
+        "(their group_uid still points at this deleted uid, shown in the UI as \"No Group Assigned\"; "
+        "generate() treats them as one separate, unnamed group — to reassign them, pick a new group "
+        "for each manually)"
     )
 
     def execute(self, context):
@@ -319,7 +320,7 @@ class SLIDERRIG_OT_remove_group(Operator):
 
 class SLIDERRIG_OT_move_group(Operator):
     bl_idname = "sliderrig.move_group"
-    bl_label = "移動分組"
+    bl_label = "Move Group"
 
     direction: EnumProperty(items=MOVE_DIRECTION_ITEMS)
 
@@ -339,24 +340,24 @@ class SLIDERRIG_OT_align_frame_to_view(Operator):
     的朝向,見CLAUDE.md)。這個operator反過來是使用者主動要求的動作:
     Frame已經生成過、視角轉了想重新對齊時用,不用整個Clear+Generate。"""
     bl_idname = "sliderrig.align_frame_to_view"
-    bl_label = "將此面板對準當前視圖"
-    bl_description = "把目前選中分組的Frame外框旋轉,正面朝向目前3D視窗的視角"
+    bl_label = "Align Panel to Current View"
+    bl_description = "Rotates the selected group's Frame outline to face the current 3D viewport's view angle"
 
     def execute(self, context):
         scene = context.scene
         groups = scene.slider_groups
         g_idx = scene.slider_group_index
         if not (0 <= g_idx < len(groups)):
-            self.report({'WARNING'}, "請先在Groups清單裡選取一個分組")
+            self.report({'WARNING'}, _("Please select a group in the Groups list first"))
             return {'CANCELLED'}
         group = groups[g_idx]
         frame = rig_builder.find_existing_frame(group.uid)
         if frame is None:
-            self.report({'WARNING'}, "這個分組還沒有生成過Frame,請先按「生成滑桿綁定」")
+            self.report({'WARNING'}, _("This group hasn't generated a Frame yet — click \"Generate Slider Rig\" first"))
             return {'CANCELLED'}
         face_rotation = rig_builder.view_facing_rotation(context)
         if face_rotation is None:
-            self.report({'WARNING'}, "請在3D Viewport裡執行(找不到目前視角)")
+            self.report({'WARNING'}, _("Must be run inside the 3D Viewport (couldn't determine the current view angle)"))
             return {'CANCELLED'}
         frame.rotation_euler = face_rotation.to_euler()
         return {'FINISHED'}
@@ -364,8 +365,8 @@ class SLIDERRIG_OT_align_frame_to_view(Operator):
 
 class SLIDERRIG_OT_generate(Operator):
     bl_idname = "sliderrig.generate"
-    bl_label = "生成滑桿綁定"
-    bl_description = "依照清單資料自動生成滑桿控制器與Driver"
+    bl_label = "Generate Slider Rig"
+    bl_description = "Auto-generates slider controls and Drivers from the list data"
 
     spacing_x: FloatProperty(default=0.12)
     spacing_y: FloatProperty(default=0.2)
@@ -374,7 +375,7 @@ class SLIDERRIG_OT_generate(Operator):
         scene = context.scene
         items = scene.slider_rig_items
         if not items:
-            self.report({'WARNING'}, "尚未新增任何滑桿項目")
+            self.report({'WARNING'}, _("No slider items have been added yet"))
             return {'CANCELLED'}
 
         # 用group_uid分組,不是分組的name字串——name可能重複或曾經重複過,
@@ -392,7 +393,7 @@ class SLIDERRIG_OT_generate(Operator):
         # control_style佔用的格數不一樣,座標不同也可能實際重疊。
         conflicts = find_grid_conflicts(groups, group_labels)
         if conflicts:
-            self.report({'ERROR'}, "格子座標衝突,已取消生成:" + "; ".join(conflicts))
+            self.report({'ERROR'}, _("Grid coordinate conflict, generation cancelled: ") + "; ".join(conflicts))
             return {'CANCELLED'}
 
         collection = rig_builder.ensure_slider_collection(context.scene)
@@ -528,17 +529,17 @@ class SLIDERRIG_OT_generate(Operator):
         if failed:
             self.report(
                 {'WARNING'},
-                f"以下項目找不到目標,已生成滑桿但未綁定Driver: {', '.join(failed)}"
+                _("No target found for the following items — sliders were generated but Drivers were not bound: ") + ", ".join(failed)
             )
         else:
-            self.report({'INFO'}, f"已生成 {len(items)} 個滑桿並完成綁定")
+            self.report({'INFO'}, _("Generated {n} slider(s) and bound Drivers").format(n=len(items)))
         return {'FINISHED'}
 
 
 class SLIDERRIG_OT_clear(Operator):
     bl_idname = "sliderrig.clear"
-    bl_label = "清除已生成的滑桿"
-    bl_description = "刪除所有已生成的滑桿物件(Driver會一併移除)"
+    bl_label = "Clear Generated Sliders"
+    bl_description = "Deletes all generated slider objects (Drivers are removed as well)"
 
     def execute(self, context):
         items = context.scene.slider_rig_items

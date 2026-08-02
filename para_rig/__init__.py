@@ -1,10 +1,11 @@
 bl_info = {
     "name": "ParaRig",
     "author": "Zosuya",
-    "version": (0, 1, 0),
+    "version": (0, 1, 1),
     "blender": (4, 2, 0),
     "location": "View3D > N-Panel > ParaRig",
-    "description": "自動生成可拖拽的滑桿控制器,並用Driver綁定到Shape Key / 自訂屬性 / 骨骼位置",
+    "description": "Auto-generates draggable slider controls and binds them via Drivers to "
+    "Shape Keys / custom properties / bone locations",
     "category": "Rigging",
     "license": "SPDX:GPL-3.0-or-later",
 }
@@ -17,6 +18,7 @@ from . import preferences
 from . import properties
 from . import operators
 from . import panels
+from . import translations
 
 classes = preferences.classes + properties.classes + operators.classes + panels.classes
 
@@ -31,20 +33,25 @@ def register():
     icons.register()
     for cls in classes:
         bpy.utils.register_class(cls)
+    # 翻譯表要在register_class之後才註冊——bpy.app.translations是把翻譯
+    # 套用在"已經註冊好的RNA屬性"上(bl_label/Property的name=/description=
+    # 等),順序反過來的話Blender在這個時間點還找不到對應的屬性可套用。
+    translations.register()
     bpy.types.Scene.slider_rig_items = CollectionProperty(type=properties.SliderRigItem)
     bpy.types.Scene.slider_rig_index = IntProperty(default=0)
     bpy.types.Scene.slider_groups = CollectionProperty(type=properties.SliderGroupItem)
     bpy.types.Scene.slider_group_index = IntProperty(default=0)
     bpy.types.Scene.slider_rig_show_all_groups = BoolProperty(
-        name="顯示所有分組的滑桿", default=False,
-        description="不勾選時,滑桿清單只顯示目前在Groups清單裡選中的那個分組底下的滑桿;勾選後顯示所有分組的滑桿"
+        name="Show Sliders From All Groups", default=False,
+        description="When off, the slider list only shows sliders belonging to the group currently "
+        "selected in the Groups list; when on, sliders from every group are shown"
     )
     # 滑桿清單的欄位顯示開關——「名稱」是選取/重新命名該列用的主要欄位,
     # 一律顯示,不開放關閉;分組/目標物件/資料名稱各自獨立可關,關掉純粹
     # 只是不畫那一欄,不影響底層資料。
-    bpy.types.Scene.slider_rig_show_col_group = BoolProperty(name="分組", default=True)
-    bpy.types.Scene.slider_rig_show_col_target_object = BoolProperty(name="目標物件", default=True)
-    bpy.types.Scene.slider_rig_show_col_data_name = BoolProperty(name="資料名稱", default=True)
+    bpy.types.Scene.slider_rig_show_col_group = BoolProperty(name="Group", default=True)
+    bpy.types.Scene.slider_rig_show_col_target_object = BoolProperty(name="Target Object", default=True)
+    bpy.types.Scene.slider_rig_show_col_data_name = BoolProperty(name="Data Name", default=True)
 
 
 def unregister():
@@ -56,6 +63,10 @@ def unregister():
     # 重新載入的時機沒有嚴格順序保證,頂層import曾經在reload過程中抓到
     # 尚未更新完的operators模組物件,導致ImportError。
     operators.SLIDERRIG_OT_edit_grid_layout.remove_handle_if_active()
+
+    # 翻譯表要在unregister_class之前先卸載,對稱於register()裡"class先
+    # 註冊、翻譯表後註冊"的順序。
+    translations.unregister()
 
     del bpy.types.Scene.slider_rig_show_col_data_name
     del bpy.types.Scene.slider_rig_show_col_target_object

@@ -8,9 +8,9 @@ from bpy.props import (
 from bpy.types import PropertyGroup
 
 TARGET_TYPE_ITEMS = [
-    ('SHAPE_KEY', '形態鍵 (Shape Key)', ''),
-    ('CUSTOM_PROP', '自訂屬性 (Custom Property)', ''),
-    ('BONE_LOC', '骨骼位置 (Bone Location)', ''),
+    ('SHAPE_KEY', 'Shape Key', ''),
+    ('CUSTOM_PROP', 'Custom Property', ''),
+    ('BONE_LOC', 'Bone Location', ''),
 ]
 
 AXIS_ITEMS = [('X', 'X', ''), ('Y', 'Y', ''), ('Z', 'Z', '')]
@@ -19,10 +19,12 @@ AXIS_ITEMS = [('X', 'X', ''), ('Y', 'Y', ''), ('Z', 'Z', '')]
 # 每種樣式要驅動幾個目標軸(對應SliderRigItem.target_bindings第幾筆)
 # 由rig_builder.CONTROL_STYLE_AXES決定,新增樣式時要記得去那裡登記一筆。
 CONTROL_STYLE_ITEMS = [
-    ('LINEAR_1D', '1軸滑桿(直向)', '沿Track局部Y軸拖拽的線性滑桿'),
-    ('LINEAR_1D_HORIZONTAL', '1軸滑桿(橫向)', '沿Track局部X軸(視覺上水平)拖拽的線性滑桿'),
-    ('XY_2D', '2軸拖拽板(XY)', '在平面上自由拖拽,X/Y各自對應一組獨立目標'),
-    ('TEXT_LABEL', '純文字', '只顯示文字(item名稱),不生成任何可拖拽的控制器,也不驅動任何目標'),
+    ('LINEAR_1D', '1-Axis Slider (Vertical)', "Linear slider dragged along the Track's local Y axis"),
+    ('LINEAR_1D_HORIZONTAL', '1-Axis Slider (Horizontal)',
+     "Linear slider dragged along the Track's local X axis (visually horizontal)"),
+    ('XY_2D', '2-Axis Drag Pad (XY)', "Free-drag on a plane; X/Y each map to their own independent target"),
+    ('TEXT_LABEL', 'Text Label',
+     "Displays only text (the item's name); generates no draggable control and drives no target"),
 ]
 
 
@@ -33,14 +35,14 @@ class TargetBinding(PropertyGroup):
     只用得到第0筆,XY_2D用到第0、1筆,依序對應哪個transform_type由
     rig_builder.CONTROL_STYLE_AXES/axes_for()決定,這裡不重複那份對照表。
     欄位定義原封不動搬自舊版直接放在SliderRigItem上的同名欄位。"""
-    target_type: EnumProperty(name="目標類型", items=TARGET_TYPE_ITEMS, default='SHAPE_KEY')
-    target_object: PointerProperty(name="目標物件", type=bpy.types.Object)
-    bone_name: StringProperty(name="骨骼名稱", description="target_type為骨骼位置時使用")
-    data_name: StringProperty(name="資料名稱", description="Shape Key名稱 或 自訂屬性名稱")
-    bone_axis: EnumProperty(name="骨骼軸向", items=AXIS_ITEMS, default='Y')
-    min_val: FloatProperty(name="最小值", default=0.0)
-    max_val: FloatProperty(name="最大值", default=1.0)
-    invert: BoolProperty(name="反轉", default=False)
+    target_type: EnumProperty(name="Target Type", items=TARGET_TYPE_ITEMS, default='SHAPE_KEY')
+    target_object: PointerProperty(name="Target Object", type=bpy.types.Object)
+    bone_name: StringProperty(name="Bone Name", description="Used when Target Type is Bone Location")
+    data_name: StringProperty(name="Data Name", description="Shape Key name, or custom property name")
+    bone_axis: EnumProperty(name="Bone Axis", items=AXIS_ITEMS, default='Y')
+    min_val: FloatProperty(name="Min Value", default=0.0)
+    max_val: FloatProperty(name="Max Value", default=1.0)
+    invert: BoolProperty(name="Invert", default=False)
 
 
 def get_binding(item, axis_index):
@@ -73,7 +75,7 @@ class SliderGroupItem(PropertyGroup):
     """獨立管理的分組清單(比照Bone Collections的操作手感)。滑桿項目用`group_uid`
     (見SliderRigItem)參照這裡的`uid`,不是name字串——改名這裡的`name`不會讓
     已指派的滑桿失效,因為它們存的識別碼跟name完全無關。"""
-    name: StringProperty(name="分組名稱", default="New Group")
+    name: StringProperty(name="Group Name", default="New Group")
     # 內部識別碼,建立時產生一次(見operators._add_group)、之後不再變動,
     # 不在UI顯示。SliderRigItem.group_uid存的就是這個值。
     uid: StringProperty(default="")
@@ -82,28 +84,31 @@ class SliderGroupItem(PropertyGroup):
     # 綁定到骨骼,否則是綁定到target_object本身的origin——不用額外的
     # target_type欄位區分,靠這兩個既有欄位的狀態組合推斷即可。
     target_object: PointerProperty(
-        name="綁定物件", type=bpy.types.Object,
-        description="讓這個分組的Frame跟著這個物件(或下面指定的骨骼)走,留空代表不綁定"
+        name="Bound Object", type=bpy.types.Object,
+        description="Makes this group's Frame follow this object (or the bone specified below); "
+        "leave empty to not bind"
     )
     bone_name: StringProperty(
-        name="綁定骨骼", default="",
-        description="綁定物件是Armature時,指定要跟隨的骨骼;留空代表跟隨物件本身的origin"
+        name="Bound Bone", default="",
+        description="When the bound object is an Armature, specifies which bone to follow; "
+        "leave empty to follow the object's own origin"
     )
     # 這個分組要不要生成Frame的矩形外框視覺。關掉時Frame物件本身依然存在
     # (Track/Handle照舊parent到它、CHILD_OF constraint照舊掛在它身上),
     # 只是不生成外框mesh——這樣「綁定又不要外框」不需要額外的定位物件。
     show_frame: BoolProperty(
-        name="顯示外框", default=True,
-        description="關閉後這個分組不會生成Frame的矩形外框視覺,但Frame物件本身仍會生成"
-        "(用來承載排版與綁定),底下的滑桿不受影響"
+        name="Show Frame Outline", default=True,
+        description="When off, this group's Frame won't generate a visible rectangular outline, but "
+        "the Frame object itself is still created (to hold layout and bindings); sliders inside are "
+        "unaffected"
     )
     # 分組名稱標籤(Text Mesh):顯示在Frame外框正上方,幫助辨識畫面上多個
     # 分組面板各自是誰——跟每個滑桿自己的show_label是同一種UI模式,但這是
     # 分組層級、顯示分組名稱、位置基準是Frame的真實量測外框範圍(見
     # rig_builder.sync_group_label),不是格子系統。
     show_name_label: BoolProperty(
-        name="顯示分組名稱", default=False,
-        description="在這個分組的Frame外框正上方顯示分組名稱(Text Mesh)"
+        name="Show Group Name", default=False,
+        description="Displays the group's name (as a Text Mesh) directly above this group's Frame outline"
     )
     # name_label_size的底層真實值(直接餵給curve.size,單位跟其他幾何常數
     # 一致)。不在UI顯示,使用者只透過下面的name_label_size(get/set包一層
@@ -123,11 +128,11 @@ class SliderGroupItem(PropertyGroup):
     # 同樣的顯示層轉換,理由一致:量級對齊(0.06這種小數不好直接讓使用者
     # 輸入),get/set各自只做一次*1000//1000,避免轉換邏輯分散兩處維護。
     name_label_size: FloatProperty(
-        name="分組名稱文字大小", default=0.06 * 1000, min=0.001 * 1000,
+        name="Group Name Text Size", default=0.06 * 1000, min=0.001 * 1000,
         get=lambda self: self._get_name_label_size() * 1000,
         set=lambda self, value: self._set_name_label_size(value / 1000),
     )
-    generated_label: PointerProperty(name="已生成分組名稱標籤", type=bpy.types.Object)
+    generated_label: PointerProperty(name="Generated Group Name Label Object", type=bpy.types.Object)
 
 
 def get_group_by_uid(scene, uid):
@@ -145,7 +150,7 @@ def group_display_name(scene, uid):
     """給UI顯示用:依uid查目前的分組名稱,查不到就顯示提示字串而不是空白
     (讓使用者知道這個滑桿的分組連結失效了,例如分組被刪除)。"""
     group = get_group_by_uid(scene, uid)
-    return group.name if group else "(未指定分組)"
+    return group.name if group else "(No Group Assigned)"
 
 
 def _on_group_changed(self, context):
@@ -213,21 +218,22 @@ def _control_style_items_callback(self, context):
 
 
 class SliderRigItem(PropertyGroup):
-    name: StringProperty(name="滑桿名稱", default="New Slider")
+    name: StringProperty(name="Slider Name", default="New Slider")
     # 存目標SliderGroupItem的uid,不是name字串——分組改名不會讓這個連結
     # 失效。UI上沒有直接的prop_search可以顯示name但寫入uid,因此分組選擇
     # 改用自訂選單(panels.SLIDERRIG_MT_group_picker + operators裡對應的
     # set_item_group operator)取代,不能再用bpy.types.UILayout.prop_search。
-    group_uid: StringProperty(name="分組", default="", update=_on_group_changed)
+    group_uid: StringProperty(name="Group", default="", update=_on_group_changed)
     grid_x: IntProperty(
-        name="橫向格子座標", default=0,
-        description="這個控制器佔用範圍的左上角格子座標(橫向),數字愈大愈往右;"
-        "可以跳號留出間距。實際佔用格數依control_style而定(見grid_layout.py)"
+        name="Grid X", default=0,
+        description="The top-left grid coordinate (horizontal) of this control's occupied area; larger "
+        "values are further right. Numbers may be skipped to leave gaps. Actual cell footprint depends "
+        "on the control style (see grid_layout.py)"
     )
     grid_y: IntProperty(
-        name="縱向格子座標", default=0,
-        description="這個控制器佔用範圍的左上角格子座標(縱向),數字愈大愈往下;"
-        "實際佔用格數依control_style而定(見grid_layout.py)"
+        name="Grid Y", default=0,
+        description="The top-left grid coordinate (vertical) of this control's occupied area; larger "
+        "values are further down. Actual cell footprint depends on the control style (see grid_layout.py)"
     )
     # 驅動目標的完整設定(目標類型/物件/資料名稱/數值範圍/反轉等,見
     # TargetBinding)拆到子PropertyGroup、存成collection而不是直接開一排
@@ -242,14 +248,14 @@ class SliderRigItem(PropertyGroup):
     # 純文字下拉選單——見icons.control_style_enum_items()的完整說明,
     # 包含「動態items不能用default參數」這個Blender限制的因應方式。
     control_style: EnumProperty(
-        name="控制器樣式", items=_control_style_items_callback,
+        name="Control Style", items=_control_style_items_callback,
         update=_on_control_style_changed,
     )
-    generated_empty: PointerProperty(name="已生成物件", type=bpy.types.Object)
+    generated_empty: PointerProperty(name="Generated Object", type=bpy.types.Object)
     # 名稱標籤(Text Mesh):顯示在Track上方,方便使用者辨認。show_label是
     # per-item開關,關掉的話這個滑桿不生成標籤。
     show_label: BoolProperty(
-        name="顯示名稱標籤", default=False, update=_on_show_label_changed
+        name="Show Name Label", default=False, update=_on_show_label_changed
     )
     # label_size的底層真實值(直接餵給curve.size,單位跟其他幾何常數
     # 一致,量級是0.01~0.1這種小數)。不在UI顯示,使用者只透過下面的
@@ -267,11 +273,11 @@ class SliderRigItem(PropertyGroup):
     # get()回傳的原始小數,不用改任何下游程式碼。get/set各自只做一次
     # /1000、*1000,避免顯示值跟底層值的轉換邏輯分散在兩處各自維護一份。
     label_size: FloatProperty(
-        name="標籤文字大小", default=0.05 * 1000, min=0.001 * 1000,
+        name="Label Text Size", default=0.05 * 1000, min=0.001 * 1000,
         get=lambda self: self._get_label_size() * 1000,
         set=lambda self, value: self._set_label_size(value / 1000),
     )
-    generated_label: PointerProperty(name="已生成標籤物件", type=bpy.types.Object)
+    generated_label: PointerProperty(name="Generated Label Object", type=bpy.types.Object)
 
 
 classes = (
