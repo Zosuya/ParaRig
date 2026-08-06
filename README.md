@@ -1,138 +1,125 @@
-[English](README.en.md) | [繁體中文](README.md)
+[English](README.md) | [繁體中文](README.zh-TW.md)
 
 ![img](docs/images/featured-image.png)
-# 什麼是ParaRig？
-這是一款能在3D視圖中自動生成、可直接拖動的整合控制器面板，讓你透過拖曳滑桿就能直接操控外形鍵、骨骼，或自訂資料，不用再一個個面板來回切換找數值。你只需要決定要哪些控制器、排在哪裡、綁定什麼資料，剩下麻煩的部分（做控制器外觀、設定驅動器、寫落落長的表達式）全部交給ParaRig處理。省下來的時間，拿去細雕動畫、多做幾個角色，或是來場愜意的下午茶。
+# What is ParaRig?
+ParaRig auto-generates a draggable control panel right inside the 3D Viewport, letting you drive Shape Keys, bones, or custom properties just by dragging sliders — no more hopping between panels hunting for values. You decide which controls you want, where they go, and what data they drive; ParaRig handles all the tedious parts (building the control widgets, setting up Drivers, writing those long expressions). Spend the time you save polishing your animation, rigging another character, or on a well-earned afternoon tea.
 
-# 特色
-- 簡易且直覺的操作：新增、刪除、排序控制器全部都是清單點按鈕搞定，不用寫任何程式碼或表達式；設定完成後直接在3D視圖裡拖動控制器看效果，所見即所得，不用切來切去對照一堆面板上的數值。
-- 非破壞性：在建立好面板之後，可以隨時回去新增、修改和刪除，只要在設定完成之後重新點一次更新就能完成控制器更新——更新是就地套用新設定，不是整組刪掉重建，所以已經生成的控制器如果手動調整過位置、大小等，這些調整都會被保留下來，不會因為改了其他設定就被打回預設狀態。
-- 多種控制器樣式：內建直向滑桿、橫向滑桿、雙軸拖曳板、純文字四種樣式，可以依照需求選擇適合的控制器，不用再為了特別的需求去煩惱如何設定驅動器和表達式。
-- 快速排版：可以使用拖移的方式快速安排每個控制器的位置，採用棋盤式排版，只要決定每個控制器要住幾樓，住誰隔壁，不用煩惱每層樓到底差了幾公分。
-- 分組管理：同一個分組底下的控制器共享一個外框，可以整組一起移動、旋轉、縮放，也可以整組綁定到某個物體或骨骼上跟著角色走。
+# Features
+- **Simple and intuitive**: adding, deleting, and reordering controls is all done by clicking buttons in a list — no code, no expressions. Once configured, drag the controls directly in the 3D Viewport to see the result. What you see is what you get, with no flipping back and forth to cross-check numbers on a pile of panels.
+- **Non-destructive**:
 
-## 免費版 / Pro 版功能比較
+  ![](docs/gif/non-destructive-update.gif)
 
-ParaRig 另有付費的 **ParaRig Pro** 版本，包含下列額外功能：
+  After your panel is built, you can go back and add, edit, or remove things at any time — just hit update once you're done. Updates are applied in place rather than deleting and rebuilding the whole set, so any manual tweaks you've made to a generated control (position, size, and so on) are preserved instead of being reset because you changed something else.
+- **Multiple control styles**: four built-in styles — vertical slider, horizontal slider, 2-axis drag pad, and text label. Pick whichever suits your data, without having to work out Driver setups and expressions for special cases.
+- **Fast layout**:
 
-| 功能 | 免費版 | Pro 版 |
-| --- | :---: | :---: |
-| 簡易且直覺的操作 | ✓ | ✓ |
-| 非破壞性更新 | ✓ | ✓ |
-| 多種控制器樣式（直向/橫向/2軸/純文字） | ✓ | ✓ |
-| 快速棋盤式排版 | ✓ | ✓ |
-| 分組管理與骨骼綁定 | ✓ | ✓ |
-| 加長版滑桿樣式 | | ✓ |
-| 多邊形混合控制器（口型混合等） | | ✓ |
-| 匯入/匯出控制器組 | | ✓ |
-| 快速資料填充 | | ✓ |
-| 對稱資料填充 | | ✓ |
-| 控制器複製 | | ✓ |
-| 一對多資料控制 | | ✓ |
-| 雙向分區資料控制 | | ✓ |
-| 滑桿吸附端點 | | ✓ |
-| 資料綁定自動命名 | | ✓ |
-| 排版畫布縮放 | | ✓ |
-| 分組「納入生成」開關 | | ✓ |
+  ![](docs/gif/quick-layout.gif)
+
+  Arrange every control by dragging, on a checkerboard-style grid. You only decide which "floor" each control lives on and who its neighbours are — no working out how many centimetres apart each row should be.
+- **Group management**: controls in the same group share one Frame, so they move, rotate, and scale together. A whole group can also be bound to follow an object or bone along with your character.
+
+# Installation
+1. Download `para_rig-<version>.zip` from the [Releases](https://github.com/Zosuya/ParaRig/releases) page.
+2. Go to Edit > Preferences > Add-ons > Install from Disk, select the downloaded zip, and enable it. Very elegant (?
+3. Open the N-panel in the 3D Viewport and switch to the **ParaRig** tab.
+
+# Interface
+The buttons you'll use most sit right at the top of the panel.
+
+- **Generate / Update Slider Rig**: use this for the first generation once your controls are configured, or to update already-generated controls after making changes.
+- **Clear Generated Sliders**: removes every generated control and all its associated data.
 
 
-# 安裝
-1. 到 [Releases](https://github.com/Zosuya/ParaRig/releases) 頁面下載 `para_rig-<版本>.zip`。
-2. 來到 Edit > Preferences > Add-ons > Install from Disk，選取下載的 zip，啟用它就可以直接使用了。非常優雅（？
-3. 打開 3D Viewport 的 N 面板，切到 **ParaRig** 分頁。
+Below that, the panel is split into two pages: **Group** and **Sliders**. The Sliders page is where you'll spend most of your time. Here's what each one is for:
 
-# 介面介紹
-在這個外掛中，最常用到的就是在最上方的通用按鈕。
+## Group
+The Group page is, as the name suggests, for managing how your controls are grouped. Each group is an independent set of controls: everything in the same group shares one Frame and moves, rotates, and scales together. If your scene has several characters that each need their own control panel, or a single character that's easier to manage split across several sets of controls, groups give you that flexibility.
 
-- 生成/更新滑桿控制器：在配置好控制器後，使用這個按鈕來進行第一次生成，或是在調整後使用此按鈕來更新已生成的控制器。
-- 清除已生成的控制器：清除已經生成的所有控制器並刪除所有相關資料。
+- **List**: each row is one group. The `+` / `-` buttons on the right add and remove groups, and `▲` / `▼` reorder them.
+- **Show Frame Outline**: controls whether the group's Frame outline is drawn. When off, the controls themselves are still there — only the outline rectangle is skipped. In that case a small dot is drawn where the outline's top-left corner would have been, as an origin marker, so you can still click and select the group in the 3D Viewport (otherwise there'd be no geometry to click at all).
+- **Show Group Name**: whether to display the group's name, plus a field for the text size.
+- **Bound Object**: pick an object to act as the parent — either an object or a bone.
+- **Align Panel to Current View**:
 
+  ![](docs/gif/align-panel-to-current-view.gif)
 
-而在下面主要分為兩個，一個是**分組（group）**另一個是**控制器（sliders）**。其中控制器面板會是使用最多的地方。先來簡單介紹一下兩個面板的用途：
+  Orients the controls to face your current viewport view.
 
-## 群組（group）
-分組面板顧名思義，就是用來管理控制器要怎麼分組。每一個分組都是一組獨立的控制集合，同一個分組底下的控制器會共享同一個外框，一起移動、一起旋轉、一起縮放。如果場景裡有多個角色都需要各自的控制器面板，或是單一角色就需要拆成好幾組控制器來管理，都可以靠分組靈活應用。
+## Sliders
+The Sliders page is where the real work happens. Each row here is one draggable slider that will actually be generated. You can name it, decide which group it belongs to, choose its control style (vertical, horizontal, 2-axis, or text label), and set which grid cell it occupies — and most importantly, configure what it actually drives: a Shape Key, a bone location, or a custom property. Once everything is set, click **Generate Slider Rig** and ParaRig builds the slider visuals, the Frame, and the Drivers automatically from your list, so you don't have to make them one by one. You can come back and add, edit, or delete entries at any time; clicking **Update Slider Rig** applies your latest settings without tearing down what's already generated (manual tweaks to position and size are preserved).
 
-- 清單：每一列代表一個分組，右側的「+」「-」新增/刪除分組，「▲」「▼」調整順序。
-- 顯示外框：控制是否顯示群組外框。關閉後控制器本身還在，只是不畫外框矩形——此時會在原本外框左上角的位置畫一個小圓點當作原點標記，讓你在3D視圖裡仍然點得到、選得到這個分組（否則沒有任何幾何體可以點選）。
-- 顯示分組名稱：選擇是否顯示群組名稱及控制文字大小。
-- 綁定物件：選擇要將哪個物體作為父集，可選擇物體或是骨骼。
-- 將此面板對準當前視圖：將控制器對準當前視圖畫面。
-
-## 控制器（sliders）
-控制器面板才是整個外掛真正的主戰場，這裡每一列代表一個實際會被生成出來的拖曳滑桿。你可以在這裡幫它取名字、決定它要歸在哪個分組底下、選擇要用哪一種控制器樣式（直向、橫向、雙軸、純文字）、要擺在排版棋盤的第幾格，最重要的是設定它到底要控制什麼——外形鍵、骨骼位置，或是自訂屬性都可以。全部設定好之後，點一次「生成滑桿綁定」，ParaRig就會照著你排好的清單，把滑桿外觀、外框、驅動器全部自動生成出來，不用你自己動手一個個做。之後不管是想新增、修改還是刪除，都可以隨時回來這裡調整，改完再點一次「更新滑桿綁定」就會套用最新設定，已經生成好的東西不會被打掉重練（例如你手動調過的位置、大小都會保留）。
-
-- 編輯排版：在這裡可以將控制器進行排版。在下面設定好控制器後，可以在這邊使用拖曳的方式來安排控制器位置。要注意的是，編輯完成之後，要先**右鍵或是按ESC先退出**編輯排版才能操作其他地方，否則左鍵點擊可能不起作用。
-- 顯示所有分組的控制器：開啟後可以看到在不同群組中的控制器。
-- 篩選：可以過濾要在清單中要看到甚麼資訊（分組、目標物件、資料名稱三欄各自可以開關）。
-- 清單：裡面摘要顯示所有滑桿的摘要資料等。每一列右側的「a」按鈕是「顯示名稱標籤」的快速開關。清單右側的按鈕由上到下分別是：
-  - 「+」：新增一列控制器。
-  - 「-」：刪除目前選中的控制器。
-  - 「▲、▼」：上下移動選中的控制器，調整它在清單中的順序。
-- 控制器名稱：這個名稱會決定在開啟「顯示名稱標籤」時所顯示的文字。
-- 顯示名稱標籤：是否要在生成控制器中顯示名稱，後面數字決定文字大小。
-- 所屬分組：透過這個清單可以改變控制器的所屬分組。
-- 控制器樣式：
+- **Edit Layout**: lay out your controls here. Once they're configured below, you can drag them into place. Note that when you're done you must **right-click or press ESC to exit** Edit Layout before you can interact with anything else — otherwise left-clicks may not register.
+- **Show Sliders From All Groups**: turn this on to see controls belonging to other groups as well.
+- **Filter**: choose which columns appear in the list (group, target object, and data name can each be toggled).
+- **List**: shows a summary of every slider. The `a` button on the right of each row is a quick toggle for "Show Name Label". The buttons down the right-hand side of the list are, from top to bottom:
+  - `+`: add a new control row.
+  - `-`: delete the currently selected control.
+  - `▲` / `▼`: move the selected control up or down to reorder it in the list.
+- **Slider Name**: this name is what gets displayed when "Show Name Label" is enabled.
+- **Show Name Label**: whether to display the name on the generated control; the number beside it sets the text size.
+- **Group**: use this dropdown to change which group the control belongs to.
+- **Control Style**:
 
   ![](docs/images/control-style-picker.png)
 
-  點擊控制器圖示會展開樣式選擇器，直接點縮圖就能切換這個控制器要用哪一種樣式。各種樣式的實際外觀與用途請參照[控制器樣式](#控制器樣式)。
+  Clicking the control icon opens the style picker — click a thumbnail to switch this control to that style. For what each style looks like and what it's for, see [Control Styles](#control-styles).
 
-### 控制器樣式
-為了因應各種綁定需求，ParaRig提供了四種不同類型的控制器樣式，可以依照資料需求來選擇適合的控制器。
+### Control Styles
+To cover a variety of binding needs, ParaRig offers four different control styles — pick whichever fits the data you're working with.
 
-無論選擇哪一種樣式，只要這個控制器有可拖曳的軸向，底下展開的「目標設定」都是同一組共通欄位：
-- 目標類型：選擇要綁定的資料類型，可以選擇外形鍵、自訂屬性或是骨骼位置。
-- 目標物體：選擇資料實際所在的物體，例如要控制外形鍵就選該外形鍵所屬的模型，要控制骨骼位置就選對應的骨架。
-- 資料名稱：輸入或選擇實際要控制的資料。目標類型是外形鍵時，這裡會直接列出目標物體現有的外形鍵清單可供選擇；是自訂屬性時，手動輸入屬性名稱即可；是骨骼位置時，改為顯示骨骼名稱與骨骼軸向欄位。
-- 最小值 / 最大值：拖曳到行程兩端時，實際要送給目標資料的數值範圍。
-- 反轉：把拖曳方向對應的數值範圍反過來。
+Whichever style you choose, as long as the control has a draggable axis, the "target settings" that expand underneath are the same common set of fields:
+- **Target Type**: the kind of data to bind — Shape Key, custom property, or bone location.
+- **Target Object**: the object the data actually lives on. For a Shape Key, pick the mesh that owns it; for a bone location, pick the corresponding armature.
+- **Data Name**: the specific piece of data to drive. When the target type is Shape Key, this lists the target object's existing Shape Keys to choose from; for a custom property, type the property name manually; for a bone location, this becomes bone name and bone axis fields instead.
+- **Min Value / Max Value**: the value range actually sent to the target data at each end of the drag travel.
+- **Invert**: flips the value range relative to the drag direction.
 
-#### 單軸控制器(直向/橫向)
-這是最通用的控制器樣式，有分為直向和橫向，只有一個拖曳軸，直接使用上方的目標設定即可。直向滑桿往上拖數值變大、橫向滑桿往右拖數值變大。
+#### 1-Axis Slider (Vertical / Horizontal)
+The most general-purpose style, available in vertical and horizontal variants. It has a single drag axis and uses the target settings above directly. Dragging a vertical slider up increases the value; dragging a horizontal slider right increases the value.
 
-#### 雙軸控制器(XY)
+#### 2-Axis Drag Pad (XY)
 ![](docs/images/slider-dual-axis.png)
 
-可以在平面上自由拖曳，X、Y兩個方向各自獨立展開一組上方的目標設定，一顆控制器就能同時驅動兩種資料變化。
+Drag freely across a plane. The X and Y directions each expand their own independent copy of the target settings above, so one control can drive two different data changes at once.
 
-#### 純文字
-不會生成任何可拖曳的控制器，也不驅動任何資料（沒有上方的目標設定），單純用來在排版棋盤上放一段文字說明或分類標題。
-- 文字大小：設定顯示的文字大小。
+#### Text Label
+Generates no draggable control and drives no data (it has no target settings). It's purely for placing a line of explanatory text or a category heading on the layout grid.
+- **Text Size**: sets the displayed text size.
 
 
-# 基本工作流程
-1. **建立分組**：在分組面板點一下「+」新增一個分組，這是等一下要生成的這批控制器共用的容器，之後可以整組一起移動、旋轉、縮放。或是直接新增控制器也可以，分組會自動生成。
-2. **新增控制器**：切到控制器面板，同樣點「+」新增一列，取個看得懂的名字，選好要用哪一種控制器樣式（直向滑桿、橫向滑桿、雙軸、純文字依需求選）。
-3. **綁定資料**：展開這一列的細節設定，選擇要控制的資料類型——外形鍵、骨骼位置，或自訂屬性，指定實際要綁定的那一筆資料，並設好數值範圍（min/max）。
-4. **安排排版**：用「編輯排版」直接在3D視圖裡用拖曳的方式，把每個控制器擺到棋盤的第幾格，不用自己手動輸入座標。
-5. **生成**：全部設定好之後，按下「生成滑桿綁定」，ParaRig會自動把外框、滑桿、驅動器全部建好，直接出現在3D視圖裡。
-6. **測試與調整**：直接在3D視圖拖曳控制器看效果，不滿意就回控制器面板改設定，改完再按一次「更新滑桿綁定」套用最新設定——已經手動調整過的位置、大小都不會受影響。
+# Basic Workflow
+1. **Create a group**: click `+` on the Group page to add one. This is the shared container for the batch of controls you're about to generate, and it can be moved, rotated, and scaled as a unit afterwards. You can also just add a control directly — a group will be created automatically.
+2. **Add controls**: switch to the Sliders page, click `+` to add a row, give it a recognisable name, and pick a control style (vertical slider, horizontal slider, 2-axis, or text label, as needed).
+3. **Bind the data**: expand that row's detail settings, choose the data type to drive — Shape Key, bone location, or custom property — specify the exact piece of data to bind, and set the value range (min/max).
+4. **Arrange the layout**: use **Edit Layout** to drag each control into its grid cell directly in the 3D Viewport, instead of typing coordinates by hand.
+5. **Generate**: once everything is configured, click **Generate Slider Rig**. ParaRig builds the Frame, sliders, and Drivers automatically, and they appear right in the 3D Viewport.
+6. **Test and adjust**: drag the controls in the 3D Viewport to see the result. If something's off, go back to the Sliders page, change the settings, and click **Update Slider Rig** again to apply them — any positions and sizes you adjusted by hand are left untouched.
 
-# 系統需求
-- Blender 4.2 以上，已在 4.5 LTS 與 5.2 LTS 兩個版本上完整測試過。
+# Requirements
+- Blender 4.2 or newer. Fully tested on 4.5 LTS and 5.2 LTS.
 
-# 常見問題 / 疑難排解
-**改了某些設定，但畫面沒有跟著更新？**
-大部分設定用「更新滑桿綁定」就會即時套用，不會動到你手動調整過的位置/大小；如果是更新到新版 ParaRig 之後外觀沒有變成新版樣子，先按一次「清除已生成的滑桿」再「生成滑桿綁定」重新建立。
+# FAQ / Troubleshooting
+**I changed some settings but the viewport didn't update.**
+Most settings apply immediately via **Update Slider Rig**, without disturbing positions and sizes you adjusted by hand. If you've updated to a newer version of ParaRig and the visuals haven't changed to the new look, click **Clear Generated Sliders** once and then **Generate Slider Rig** to rebuild them.
 
-**分組被我刪掉了，底下的滑桿變成顯示「(未指定分組)」？**
-刪除分組不會連動刪掉底下的滑桿，只是滑桿失去對應的分組——這是刻意的保護設計，避免手滑刪一個分組就整批資料一起消失。回控制器面板重新指定分組即可。
+**I deleted a group and now its sliders show "(No Group Assigned)".**
+Deleting a group does not delete the sliders under it — they simply lose their group association. This is a deliberate safeguard so that one accidental deletion doesn't wipe out a whole batch of data. Just reassign the group on the Sliders page.
 
-**關掉「顯示外框」之後，在3D視圖裡點不到這個分組？**
-關閉外框時會在原本外框左上角的位置留下一個小圓點當作原點標記，點它就可以選到這個分組。如果連小圓點都找不到，也可以從Outliner或用Shift+G選父層。
+**I turned off "Show Frame Outline" and now I can't click the group in the 3D Viewport.**
+With the outline off, a small dot is left where the outline's top-left corner would have been, as an origin marker — click it to select the group. If you can't find even the dot, you can also select it from the Outliner or use Shift+G to select the parent.
 
-**按下「清除已生成的控制器」按鈕後，控制器沒有正確清理乾淨怎麼辦？**
-生成的控制器會統一放在ParaRig的集合中，可以直接刪除整個集合，維持資料乾淨。
+**I clicked "Clear Generated Sliders" but the controls weren't cleaned up properly.**
+All generated controls are placed in the "ParaRig" collection, so you can simply delete that entire collection to keep your data tidy.
 
-# 版本紀錄
+# Changelog
 ### v1.0.0
-- 首個正式版本。核心的滑桿生成/驅動器綁定管線、分組系統、棋盤式排版與編輯排版畫布、四種控制器樣式（直向/橫向/雙軸/純文字）、名稱標籤、非破壞性更新皆已完備並經過測試
-- 修正改綁目標後舊目標殘留孤兒 Driver 的問題
-- 修正橫向滑桿的拖曳方向：最小值/0 現在在左邊、最大值在右邊
-- 關閉「顯示外框」時，改在原本外框左上角畫一個原點標記，讓分組在3D視圖裡仍然選得到
-- N 面板改為「分組」/「控制器」兩頁切換，控制器清單每列加上樣式圖示與名稱標籤快速開關
-- Track/外框加上圓角，名稱標籤間距調整避免壓到外框
+- First stable release. The core slider generation and Driver binding pipeline, the group system, checkerboard layout with the Edit Layout canvas, four control styles (vertical / horizontal / 2-axis / text label), name labels, and non-destructive updates are all complete and tested
+- Fixed orphaned Drivers being left behind on the old target after rebinding
+- Fixed the horizontal slider's drag direction: the minimum value / 0 is now on the left and the maximum on the right
+- With "Show Frame Outline" off, an origin marker is now drawn at the outline's former top-left corner so the group can still be selected in the 3D Viewport
+- The N-panel is now split into "Group" and "Sliders" pages; each row in the control list gained a style icon and a quick toggle for the name label
+- Rounded corners on tracks and Frame outlines, and adjusted name label spacing so it no longer overlaps the outline
 
-# 授權 / 使用條款
-ParaRig 採用 **GPL-3.0-or-later** 開源授權，可以自由使用（含商業用途）、修改與再散布——完整條款見 [`LICENSE`](LICENSE)。
+# License / Terms of Use
+ParaRig is licensed under **GPL-3.0-or-later**: you are free to use it (including commercially), modify it, and redistribute it — see [`LICENSE`](LICENSE) for the full terms.
