@@ -10,3 +10,7 @@ __pycache__/
 # Machine-specific VS Code / Blender Development extension settings
 # (hardcodes local paths like the Python interpreter and Blender executable)
 .vscode/
+
+# Release build output — the packaged add-on is attached to GitHub Releases,
+# not committed into the repo
+*.zip

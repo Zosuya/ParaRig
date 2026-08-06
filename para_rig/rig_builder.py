@@ -9,10 +9,11 @@ import bpy
 import mathutils
 
 from .mesh_builders import (
-    CELL_SIZE, FRAME_BORDER_THICKNESS, LABEL_GAP,
+    CELL_SIZE, FRAME_BORDER_THICKNESS, FRAME_CORNER_RADIUS,
+    FRAME_ORIGIN_MARKER_RADIUS, LABEL_GAP,
     HANDLE_TRAVEL, PAD_TRAVEL, GROUP_LABEL_GAP,
     _ensure_track_mesh, _ensure_handle_mesh, _ensure_pad_track_mesh,
-    _ensure_empty_track_mesh, _fill_ring_mesh_asym,
+    _ensure_empty_track_mesh, _fill_ring_mesh_asym, add_disc_to_mesh,
 )
 from .grid_layout import CONTROL_STYLE_CELLS
 from . import properties
@@ -24,36 +25,91 @@ SLIDER_COLLECTION_NAME = "ParaRig"
 SLIDER_UI_MATERIAL_NAME = "ParaRigUI"
 
 
-def resolve_driver_target(binding):
-    """回傳 (id_data, data_path, array_index) 供 driver_add 使用;失敗回傳None。
-    binding是一筆TargetBinding(見properties.py),不是SliderRigItem本身——
-    一個item可能有多筆binding(XY_2D兩軸各一筆),每筆各自獨立解析。"""
-    if binding.target_type == 'SHAPE_KEY':
-        obj = binding.target_object
+def _resolve_driver_target_fields(target_type, target_object, data_name, bone_name, bone_axis):
+    """核心解析邏輯,回傳(id_data, data_path, array_index)供driver_add使用;
+    失敗回傳None。抽成接受明確欄位值的純函式(不直接讀binding),讓
+    resolve_driver_target()(即時欄位)跟_resolve_bound_driver_target()
+    (上一次實際綁定的快照欄位,見properties.TargetBinding.bound_target_type
+    等欄位定義處的說明)可以共用同一套switch邏輯,不用維護兩份一樣的
+    if/elif。"""
+    if target_type == 'SHAPE_KEY':
+        obj = target_object
         if not obj or not obj.data or not getattr(obj.data, "shape_keys", None):
             return None
-        key = obj.data.shape_keys.key_blocks.get(binding.data_name)
+        key = obj.data.shape_keys.key_blocks.get(data_name)
         if not key:
             return None
         return key, "value", -1
 
-    elif binding.target_type == 'CUSTOM_PROP':
-        obj = binding.target_object
-        if not obj or binding.data_name not in obj.keys():
+    elif target_type == 'CUSTOM_PROP':
+        obj = target_object
+        if not obj or data_name not in obj.keys():
             return None
-        return obj, f'["{binding.data_name}"]', -1
+        return obj, f'["{data_name}"]', -1
 
-    elif binding.target_type == 'BONE_LOC':
-        obj = binding.target_object
+    elif target_type == 'BONE_LOC':
+        obj = target_object
         if not obj or obj.type != 'ARMATURE':
             return None
-        pbone = obj.pose.bones.get(binding.bone_name)
+        pbone = obj.pose.bones.get(bone_name)
         if not pbone:
             return None
-        axis_idx = {'X': 0, 'Y': 1, 'Z': 2}[binding.bone_axis]
+        axis_idx = {'X': 0, 'Y': 1, 'Z': 2}[bone_axis]
         return pbone, "location", axis_idx
 
     return None
+
+
+def resolve_driver_target(binding):
+    """回傳 (id_data, data_path, array_index) 供 driver_add 使用;失敗回傳None。
+    binding是一筆TargetBinding(見properties.py),不是SliderRigItem本身——
+    一個item可能有多筆binding(XY_2D兩軸各一筆),每筆各自獨立解析。用的是
+    binding當下的即時欄位(使用者在UI上看到、正在編輯的值),要新建driver
+    找目標時用這個;移除舊driver要用_resolve_bound_driver_target()(見該
+    函式的說明),不要在remove_driver()裡誤用這個。"""
+    return _resolve_driver_target_fields(
+        binding.target_type, binding.target_object, binding.data_name,
+        binding.bone_name, binding.bone_axis,
+    )
+
+
+def _resolve_bound_driver_target(binding):
+    """回傳上一次rig_builder.add_driver()成功建立driver時,實際使用的目標
+    (讀binding.bound_*快照欄位,不是即時欄位)。remove_driver()一律靠這個
+    (不是resolve_driver_target())決定去哪裡拆driver——使用者改
+    target_object/data_name之後,即時欄位已經指向新目標,沒有辦法回推
+    「原本綁在哪裡」,只有這份快照留著改動前的紀錄(見
+    properties.TargetBinding.bound_target_type等欄位定義處的完整說明)。
+    bound_target_type是空字串代表這筆binding目前沒有已知的既有driver
+    (從沒建立過,或上次remove_driver()執行完已經清空),直接回傳None,
+    不會誤觸_resolve_driver_target_fields()裡任何一個分支。"""
+    if not binding.bound_target_type:
+        return None
+    return _resolve_driver_target_fields(
+        binding.bound_target_type, binding.bound_target_object, binding.bound_data_name,
+        binding.bound_bone_name, binding.bound_bone_axis,
+    )
+
+
+def _snapshot_bound_driver_target(binding):
+    """把binding即時欄位目前指向的目標存進bound_*快照,供之後
+    remove_driver()使用。只在add_driver()成功建立driver之後呼叫——沒有
+    成功建立就存快照的話,快照會跟「實際場景裡到底有沒有driver」對不上。"""
+    binding.bound_target_type = binding.target_type
+    binding.bound_target_object = binding.target_object
+    binding.bound_data_name = binding.data_name
+    binding.bound_bone_name = binding.bone_name
+    binding.bound_bone_axis = binding.bone_axis
+
+
+def _clear_bound_driver_snapshot(binding):
+    """清空bound_*快照,代表「這筆binding目前沒有任何已知綁定」。
+    remove_driver()不論有沒有真的找到driver可拆,執行完都會呼叫這個。"""
+    binding.bound_target_type = ""
+    binding.bound_target_object = None
+    binding.bound_data_name = ""
+    binding.bound_bone_name = ""
+    binding.bound_bone_axis = ""
 
 
 def ensure_slider_collection(scene):
@@ -158,9 +214,19 @@ def track_rotation_for(control_style):
     Track底下,LIMIT_LOCATION的owner_space='LOCAL'鉗制的是Handle自己的局部
     空間,不受parent(Track)旋轉影響,driver讀的也是Handle局部Y座標,所以轉
     Track就能讓拖拽方向在世界空間裡從垂直變水平,不需要另外改driver的
-    transform_type或constraint軸向(已用最小可重現案例實測驗證過)。"""
+    transform_type或constraint軸向(已用最小可重現案例實測驗證過)。
+
+    **必須是-90度,不是+90度**:driver把Handle局部+Y映射到max_val、
+    局部-Y映射到min_val(見add_driver的線性映射公式),繞Z軸轉+90度會
+    讓局部+Y指向世界-X,結果是max在左邊、min(通常是0)在右邊,跟橫向
+    滑桿「左邊是0、往右變大」的直覺相反(真實使用者回報)。轉-90度讓
+    局部+Y指向世界+X,min/0落在左邊、max落在右邊,跟直向樣式
+    (局部+Y就是世界+Y,min在下、max在上)的「往正方向拖曳數值變大」
+    語意一致。
+    這裡的正負號改動不需要動driver/constraint的任何設定——兩者都在
+    Handle自己的局部空間運作(見上面的說明),只有Track的世界朝向變了。"""
     if control_style == 'LINEAR_1D_HORIZONTAL':
-        return (0.0, 0.0, math.radians(90))
+        return (0.0, 0.0, math.radians(-90))
     return (0.0, 0.0, 0.0)
 
 
@@ -265,6 +331,11 @@ def create_slider_widgets(item, location, collection):
         collection.objects.link(handle)
         handle.parent = track
         handle.hide_render = True
+        # 純文字沒有可拖拽的意義(axes_for('TEXT_LABEL')是空tuple,不驅動
+        # 任何target),不該讓使用者誤以為這是個可以選取/拖拽的控制器
+        # 本體——比照上面Track本身的設定,凡是「不該被使用者直接選取
+        # 操作」的生成物件都設hide_select。
+        handle.hide_select = True
         ensure_ui_material_on(handle)
         handle.lock_location = _handle_lock_for(item.control_style)
         handle.lock_rotation = [True, True, True]
@@ -332,6 +403,12 @@ def sync_text_label_content(item):
     curve = item.generated_empty.data
     curve.body = item.name
     curve.size = item.label_size_raw
+    # hide_select比照create_slider_widgets()新建時的設定(見該函式)——這裡
+    # 補一份是為了讓「這次修正之前就已經生成過」的既有純文字滑桿,不用
+    # 整個Clear+Generate重建,按一次「更新滑桿綁定」就能補上這個設定
+    # (can_keep_existing_widgets為True時Handle物件本身完全不會重建,只有
+    # 這個每次都會執行的同步函式碰得到它)。
+    item.generated_empty.hide_select = True
 
 
 def can_keep_existing_widgets(item):
@@ -537,6 +614,54 @@ def remove_orphan_frames(valid_group_uids):
             _remove_object_and_data(obj)
 
 
+def frame_origin_marker_center(extent):
+    """回傳show_frame關閉時,原點標記小圓點的圓心座標(Frame局部空間的
+    (x, y))——內容範圍的左上角,也就是外框如果有畫出來的話,左上角那一點
+    的位置。
+
+    刻意用extent的(min_x, max_y)而不是Frame自己的局部原點(0,0):Frame的
+    局部原點不保證落在內容的左上角,甚至常常落在內容中間(見
+    measure_group_extent的說明——內容經常不以Frame原點對稱分布,標籤側的
+    margin還刻意比其他側窄),畫在(0,0)會讓標記出現在控制器之間而不是
+    使用者預期的角落。用extent則保證「開外框時左上角在哪、關外框時標記
+    就在哪」,切換show_frame不會讓標記位置跳動。
+
+    往內縮一整個半徑(不是半個)是為了讓**整個圓點**落在extent內——圓心
+    只縮半個半徑的話,圓的外緣仍會凸出extent之外半個半徑(實測驗證過:
+    extent左緣-0.1620、圓心-0.1545、但外緣到-0.1695,凸出0.0075)。
+    extent已經是加過margin的邊界,凸出去在視覺上會像是飄在框外的孤立點。
+    縮一整個半徑之後,圓的外緣剛好內切於extent的角落。"""
+    min_x, _max_x, _min_y, max_y = extent
+    inset = FRAME_ORIGIN_MARKER_RADIUS
+    return (min_x + inset, max_y - inset)
+
+
+def _fill_frame_mesh(mesh, extent, show_frame):
+    """依show_frame填Frame的mesh內容:開啟時畫矩形外框,關閉時改畫一個
+    左上角的原點標記小圓點(見frame_origin_marker_center)。
+
+    抽成共用函式是因為create_slider_frame()(新建)跟update_frame_mesh()
+    (既有Frame)兩處都要做完全一樣的判斷——先前這段邏輯在兩個函式裡各寫
+    一份,任何一邊改了另一邊沒跟上就會出現「新建的Frame有標記、但既有
+    Frame按更新之後沒有」這種不一致。呼叫端負責mesh的生命週期
+    (新建/clear_geometry),這裡只負責填內容。"""
+    if show_frame:
+        min_x, max_x, min_y, max_y = extent
+        _fill_ring_mesh_asym(
+            mesh, min_x, max_x, min_y, max_y,
+            FRAME_BORDER_THICKNESS, 0, 1, FRAME_CORNER_RADIUS,
+        )
+        return
+    # show_frame關閉:不畫外框,但仍要留一點幾何體讓這個Frame在viewport
+    # 裡選得到(見FRAME_ORIGIN_MARKER_RADIUS的說明)。標記畫在Frame自己的
+    # mesh上、不是另外建一個子物件——點到標記就等於選到Frame本身,正好是
+    # 這個功能要解決的問題;另建子物件的話點到的是那個子物件,反而沒解決。
+    center_x, center_y = frame_origin_marker_center(extent)
+    add_disc_to_mesh(
+        mesh, FRAME_ORIGIN_MARKER_RADIUS, center_x, center_y, 0, 1,
+    )
+
+
 def create_slider_frame(group_uid, group_label, extent, collection,
                          face_rotation=None, show_frame=True):
     """建立這個group專屬的全新外框(Frame)物件(這個group目前在場景裡還沒有
@@ -556,12 +681,11 @@ def create_slider_frame(group_uid, group_label, extent, collection,
     使用者手動Rotate過、或是單純沒去動它,generate()都不會再覆寫它的旋轉
     (見update_frame_mesh,既有Frame只重算mesh,完全不碰transform)。
     show_frame為False時,Frame物件仍然建立(承載排版與綁定,見下方
-    sync_frame_binding),只是mesh內容留空,視覺上看不到矩形外框。"""
+    sync_frame_binding),不畫矩形外框,改在內容範圍左上角畫一個原點標記
+    小圓點(見_fill_frame_mesh/frame_origin_marker_center)。"""
     suffix = f"{group_label}_{group_uid[:8]}"
     mesh = bpy.data.meshes.new(f"SliderFrameData_{suffix}")
-    if show_frame:
-        min_x, max_x, min_y, max_y = extent
-        _fill_ring_mesh_asym(mesh, min_x, max_x, min_y, max_y, FRAME_BORDER_THICKNESS, 0, 1)
+    _fill_frame_mesh(mesh, extent, show_frame)
     frame = bpy.data.objects.new(f"SliderFrame_{suffix}", mesh)
     frame["group_uid"] = group_uid
     frame.hide_render = True  # 控制介面,不該出現在最終渲染輸出裡
@@ -578,7 +702,11 @@ def update_frame_mesh(frame, extent, show_frame=True):
     已經手動Move/Rotate/Scale過的狀態,這是generate()改成非破壞性的核心
     行為之一。舊mesh data直接在原地重新填內容(不新建/替換mesh block),
     這樣任何指向這份mesh data的引用(理論上只有這個Frame自己)都不會失效。
-    show_frame為False時清空geometry、不重新填充,Frame物件本身繼續存在。
+    show_frame為False時不畫矩形外框,改在內容範圍左上角畫一個原點標記
+    小圓點(見_fill_frame_mesh/frame_origin_marker_center),Frame物件本身
+    繼續存在。這裡每次都先clear_geometry()再重填,所以show_frame開↔關
+    的切換不需要另外偵測——按一次「更新滑桿綁定」就會換成對應的內容,
+    不用先Clear再Generate。
     也順便補上hide_render/預設材質——這兩個是這輪才加的行為,既有(在舊版
     程式碼下建立的)Frame物件可能還沒有,補上時只在沒有材質slot時才套用,
     不會動到使用者已經自己調過的材質。
@@ -593,9 +721,7 @@ def update_frame_mesh(frame, extent, show_frame=True):
     ensure_ui_material_on(frame)
     mesh = frame.data
     mesh.clear_geometry()
-    if show_frame:
-        min_x, max_x, min_y, max_y = extent
-        _fill_ring_mesh_asym(mesh, min_x, max_x, min_y, max_y, FRAME_BORDER_THICKNESS, 0, 1)
+    _fill_frame_mesh(mesh, extent, show_frame)
 
 
 def measure_group_extent(frame, child_objects):
@@ -730,18 +856,25 @@ def view_facing_rotation(context):
 
 
 def remove_driver(binding):
-    """移除binding(一筆TargetBinding)目前綁定在目標屬性上的driver(如果有)。"""
-    target = resolve_driver_target(binding)
-    if target is None:
-        return
-    id_data, data_path, array_index = target
-    try:
-        if array_index == -1:
-            id_data.driver_remove(data_path)
-        else:
-            id_data.driver_remove(data_path, array_index)
-    except Exception:
-        pass
+    """移除binding(一筆TargetBinding)*上一次實際建立*的driver(如果有)——
+    靠binding.bound_*快照欄位(_resolve_bound_driver_target)解析要拆
+    哪裡,不是即時欄位,因為使用者可能在建立driver之後又改了
+    target_object/data_name/bone_name等欄位,這時即時欄位已經指向新
+    目標,沒辦法回推原本綁在哪裡(見properties.TargetBinding.bound_target_type
+    等欄位定義處的完整說明——這是真實踩過的孤兒driver bug,不是預防性
+    寫法)。不論有沒有真的找到driver可拆,執行完都會清空快照,代表
+    「這筆binding目前沒有任何已知綁定」。"""
+    target = _resolve_bound_driver_target(binding)
+    if target is not None:
+        id_data, data_path, array_index = target
+        try:
+            if array_index == -1:
+                id_data.driver_remove(data_path)
+            else:
+                id_data.driver_remove(data_path, array_index)
+        except Exception:
+            pass
+    _clear_bound_driver_snapshot(binding)
 
 
 def add_driver(binding, empty, transform_type, travel):
@@ -754,10 +887,16 @@ def add_driver(binding, empty, transform_type, travel):
     HANDLE_TRAVEL寫死在算式裡,否則XY_2D的線性映射範圍會算錯)。"""
     target = resolve_driver_target(binding)
     if target is None:
+        # 即時欄位解析不出有效目標(例如target_object被清空)——仍然要
+        # 呼叫remove_driver()清掉「上一次」可能綁在別的目標上的舊driver,
+        # 不能因為新目標無效就放著舊driver不管,變成孤兒(見remove_driver
+        # 的說明)。
+        remove_driver(binding)
         return False
     id_data, data_path, array_index = target
 
-    remove_driver(binding)  # 先移除舊driver避免重複
+    # 先移除上一次實際綁定的舊driver(可能在別的目標上),避免重複/孤兒
+    remove_driver(binding)
 
     if array_index == -1:
         fcurve = id_data.driver_add(data_path)
@@ -796,6 +935,10 @@ def add_driver(binding, empty, transform_type, travel):
     drv.expression = (
         f"(slider + {travel}) / {2 * travel} * ({hi} - ({lo})) + ({lo})"
     )
+
+    # driver確實建立完成後才存快照——之後使用者改target_object/data_name
+    # 時,remove_driver()靠這份快照才知道要回去哪裡拆掉這個driver。
+    _snapshot_bound_driver_target(binding)
     return True
 
 

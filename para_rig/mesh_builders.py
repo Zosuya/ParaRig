@@ -23,6 +23,11 @@ TRACK_OUTLINE_THICKNESS = SLIDER_TRAVEL * 0.05  # 軌道外框線本身的粗細
 HANDLE_RADIUS = SLIDER_TRAVEL * 0.3       # 把手圓盤半徑
 TRACK_WIDTH = HANDLE_RADIUS * 3.4         # 軌道外框的截面寬度,要明顯比Handle直徑(2*HANDLE_RADIUS)
                                             # 寬,確保圓形把手完整被框住且兩側留有可見的邊界留白
+# 軌道外框的圓角半徑——只是「加一點圓角」的視覺調整,不是完全的膠囊/藥丸
+# 造型(那樣半徑要等於TRACK_WIDTH/2,兩端會變成半圓)。實際生成時會被
+# _rounded_rect_points()自動夾限到不超過短邊的一半,不會因為跟TRACK_LENGTH/
+# PAD_SIZE的比例算錯而爆出異常形狀。
+TRACK_CORNER_RADIUS = TRACK_WIDTH * 0.3
 
 # Handle實際可拖拽的距離(兩端分別對應min_val/max_val),刻意比SLIDER_TRAVEL小,
 # 確保Handle+HANDLE_RADIUS的極限位置不會超出TRACK_LENGTH/2
@@ -35,6 +40,24 @@ FRAME_MARGIN = SLIDER_TRAVEL * 0.4         # 外框內緣與最外側滑桿軌�
 # 對四邊分別套用哪一個margin的判斷邏輯。
 LABEL_SIDE_MARGIN = SLIDER_TRAVEL * 0.2
 FRAME_BORDER_THICKNESS = SLIDER_TRAVEL * 0.1  # 外框邊線的粗細
+# Frame外框的圓角半徑,跟TRACK_CORNER_RADIUS同樣是「加一點圓角」的視覺調整
+# ——刻意用跟TRACK_CORNER_RADIUS相近的絕對值(SLIDER_TRAVEL*0.3)而不是
+# 依Frame自己的尺寸算比例,讓Track跟Frame的圓角視覺弧度一致,不會因為
+# Frame通常比Track大很多而顯得比例失調。Frame的extent是動態量測出來的
+# (見measure_group_extent),不是固定尺寸,所以一律靠_rounded_rect_points
+# 內部的夾限保證不會超出Frame實際大小,即使只有單一個小滑桿的極小Frame
+# 也不會出現圓角互相重疊或超框的異常形狀。
+FRAME_CORNER_RADIUS = SLIDER_TRAVEL * 0.3
+# show_frame關閉時,畫在Frame內容範圍左上角的原點標記小圓點半徑。
+# show_frame=False會讓Frame的mesh完全沒有geometry,viewport的GPU picking
+# 沒有東西可畫,結果是這個Frame在3D視圖裡點不到也框不到,只能從Outliner
+# 或Shift+G選父層繞過去(使用者回報的互動缺陷)——這個小圓點就是「至少
+# 留一點可以點得到的幾何體」的最小解法,不是裝飾。
+# 取HANDLE_RADIUS的一半:夠小不干擾畫面(Handle圓盤本身已經是控制器裡
+# 最小的視覺元素之一),但仍然點得到。刻意用HANDLE_RADIUS的比例而不是
+# SLIDER_TRAVEL,是為了讓標記跟Handle的大小關係固定,調整Handle尺寸時
+# 標記會等比例跟著走。
+FRAME_ORIGIN_MARKER_RADIUS = HANDLE_RADIUS * 0.5
 
 # grid_layout.py用的固定格子物理尺寸(一格的寬/高,米):約等於目前相鄰控制器
 # 中心點之間的間距(TRACK_WIDTH,即控制器截面寬度,加上FRAME_MARGIN當左右
@@ -52,8 +75,10 @@ PAD_SIZE = 2 * CELL_SIZE - FRAME_MARGIN
 PAD_TRAVEL = (PAD_SIZE / 2 - HANDLE_RADIUS) * 0.9
 
 # 名稱標籤(Text Mesh)與Track頂端(+Y方向,固定拖拽軸的正向)之間的間距,
-# 避免文字緊貼著Track外框
-LABEL_GAP = -0.08
+# 避免文字緊貼著Track外框。從-0.08調整為-0.03(往外/上多推一點)——
+# 使用者要求所有控制器的名稱標籤統一往上調整一點空間,原本的間距會讓
+# 文字壓到Track外框上緣。
+LABEL_GAP = -0.03
 
 # 估算標籤文字實際佔用的高度:Text物件的curve.size大致對應字高,但實際
 # render出來的bounding box會因字型/內容略有出入,乘一個略大於1的係數當
@@ -83,23 +108,62 @@ def _get_or_build_mesh(name, build_fn):
     return mesh
 
 
-def _fill_ring_mesh(mesh, half_along, half_across, border, along_idx, across_idx):
+def _rounded_rect_points(min_along, max_along, min_across, max_across, radius, segments_per_corner=6):
+    """回傳沿著圓角矩形邊界一圈的(along, across)點,依逆時鐘方向從「右下角
+    圓弧起點」開始,依序繞過右下→右上→左上→左下四個圓角銜接回原點。
+
+    radius會自動夾限到不超過矩形短邊的一半(max(0.0, min(radius, half_along,
+    half_across))),避免圓弧互相重疊或超出矩形本身範圍——夾限到0時,四段
+    圓弧各自收斂成單一個點(剛好是原本的直角頂點),不需要另外分支處理
+    「半徑為0」的銳角矩形情況,呼叫端(_fill_ring_mesh_asym)永遠可以假設
+    回傳的是同一種「4*(segments_per_corner+1)個點」的等長清單。"""
+    half_along = (max_along - min_along) / 2
+    half_across = (max_across - min_across) / 2
+    r = max(0.0, min(radius, half_along, half_across))
+
+    # 四個圓角的圓心座標,以及各自的起訖角度(度)——起訖角度沿逆時鐘方向
+    # 銜接,讓四段圓弧首尾相接剛好繞矩形一圈,不留縫隙也不重疊。
+    corners = (
+        (max_along - r, min_across + r, -90, 0),    # 右下
+        (max_along - r, max_across - r, 0, 90),      # 右上
+        (min_along + r, max_across - r, 90, 180),    # 左上
+        (min_along + r, min_across + r, 180, 270),   # 左下
+    )
+    points = []
+    for cx, cy, start_deg, end_deg in corners:
+        for i in range(segments_per_corner + 1):
+            t = i / segments_per_corner
+            angle = math.radians(start_deg + (end_deg - start_deg) * t)
+            points.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+    return points
+
+
+def _fill_ring_mesh(mesh, half_along, half_across, border, along_idx, across_idx, corner_radius=0.0):
     """把mesh填成一個扁平的矩形外框(方形圈環),躺在along_idx/across_idx構成的平面上,
-    第三軸(深度)恆為0,呈現2D線框的視覺效果。以(0,0)為中心對稱建構。"""
+    第三軸(深度)恆為0,呈現2D線框的視覺效果。以(0,0)為中心對稱建構。
+    corner_radius>0時外框四個角改成圓角(見_rounded_rect_points),預設0
+    維持原本的直角。"""
     _fill_ring_mesh_asym(
         mesh, -half_along, half_along, -half_across, half_across,
-        border, along_idx, across_idx,
+        border, along_idx, across_idx, corner_radius,
     )
 
 
 def _fill_ring_mesh_asym(mesh, min_along, max_along, min_across, max_across,
-                          border, along_idx, across_idx):
+                          border, along_idx, across_idx, corner_radius=0.0):
     """跟_fill_ring_mesh一樣是扁平矩形外框,但四個邊界各自獨立指定,不假設
     以(0,0)為中心對稱——目前只有Frame會用到(見rig_builder.update_frame_mesh/
     create_slider_frame),因為Frame的內容(Track/Handle/Label)可能不對稱
     分布:標籤那一側的留白(LABEL_SIDE_MARGIN)刻意比其他側(FRAME_MARGIN)
     小,Frame的局部原點(0,0)因此不再是mesh本身的幾何中心,但仍然是
-    grid_layout.cell_center_local_xy()置中Track的基準,兩者互不影響。"""
+    grid_layout.cell_center_local_xy()置中Track的基準,兩者互不影響。
+
+    內圈(inner)用「外圈邊界各自往內縮border、圓角半徑也跟著縮小border」
+    的方式算(min_along+border/max_along-border/...、corner_radius-border),
+    這是圓角矩形做等距內縮(offset)的標準做法——border < corner_radius時
+    內圈的角依然是圓的(半徑變小),border >= corner_radius時
+    _rounded_rect_points內部的夾限會讓內圈的角自動收斂回直角,不會產生
+    負半徑或形狀跑掉的問題。"""
     bm = bmesh.new()
 
     def vec(along, across):
@@ -108,16 +172,31 @@ def _fill_ring_mesh_asym(mesh, min_along, max_along, min_across, max_across,
         v[across_idx] = across
         return v
 
-    outer = [bm.verts.new(vec(a, c)) for a, c in (
-        (min_along, min_across), (max_along, min_across),
-        (max_along, max_across), (min_along, max_across),
-    )]
-    inner = [bm.verts.new(vec(a, c)) for a, c in (
-        (min_along + border, min_across + border), (max_along - border, min_across + border),
-        (max_along - border, max_across - border), (min_along + border, max_across - border),
-    )]
-    for i in range(4):
-        j = (i + 1) % 4
+    if corner_radius <= 1e-9:
+        # corner_radius關掉:維持原本4點直角矩形,不要走下面的
+        # _rounded_rect_points——半徑0時該函式雖然數學上也能收斂出正確
+        # 形狀,但每個角會產生segments_per_corner+1個重合在同一點的重複
+        # 頂點,徒增mesh的頂點數(8個頂點會膨脹成56個,視覺上一樣但完全
+        # 沒必要)。
+        outer_pts = [
+            (min_along, min_across), (max_along, min_across),
+            (max_along, max_across), (min_along, max_across),
+        ]
+        inner_pts = [
+            (min_along + border, min_across + border), (max_along - border, min_across + border),
+            (max_along - border, max_across - border), (min_along + border, max_across - border),
+        ]
+    else:
+        outer_pts = _rounded_rect_points(min_along, max_along, min_across, max_across, corner_radius)
+        inner_pts = _rounded_rect_points(
+            min_along + border, max_along - border, min_across + border, max_across - border,
+            corner_radius - border,
+        )
+    outer = [bm.verts.new(vec(a, c)) for a, c in outer_pts]
+    inner = [bm.verts.new(vec(a, c)) for a, c in inner_pts]
+    n = len(outer)
+    for i in range(n):
+        j = (i + 1) % n
         bm.faces.new((outer[i], outer[j], inner[j], inner[i]))
     bm.normal_update()
     bm.to_mesh(mesh)
@@ -140,6 +219,35 @@ def _fill_disc_mesh(mesh, radius, a0_idx, a1_idx, segments=24):
     bm.free()
 
 
+def add_disc_to_mesh(mesh, radius, center_a0, center_a1, a0_idx, a1_idx, segments=16):
+    """在既有mesh上「追加」一個扁平實心圓盤(圓心在center_a0/center_a1),
+    不清空mesh原本的內容——跟_fill_disc_mesh()的差別有兩個:圓心可以不在
+    原點,而且是append不是replace。
+
+    給Frame的原點標記用(見rig_builder.frame_origin_marker_center/
+    _fill_frame_mesh):標記要畫在Frame內容範圍的左上角,不是Frame自己的
+    局部原點,所以需要能指定圓心;而Frame的mesh在show_frame=True時已經
+    有外框的geometry,不能被清掉(雖然目前只在show_frame=False時才畫標記、
+    兩者不會同時存在,但用append語意才不會讓「以後想同時畫」變成要重寫
+    這個函式)。
+
+    segments預設16而不是_fill_disc_mesh的24——這個標記的實際半徑只有
+    Handle圓盤的一半,尺寸小到看不出多邊形邊數的差異,用不著那麼多頂點。"""
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    verts = []
+    for i in range(segments):
+        angle = 2 * math.pi * i / segments
+        v = [0.0, 0.0, 0.0]
+        v[a0_idx] = center_a0 + radius * math.cos(angle)
+        v[a1_idx] = center_a1 + radius * math.sin(angle)
+        verts.append(bm.verts.new(v))
+    bm.faces.new(verts)
+    bm.normal_update()
+    bm.to_mesh(mesh)
+    bm.free()
+
+
 def _ensure_track_mesh():
     """回傳滑桿軌道的長條「外框」mesh data(2D線框風格),所有滑桿共用同一份
     (拖拽方向固定沿Track自己的局部Y軸,不再有多軸向需要分別快取)。"""
@@ -147,7 +255,7 @@ def _ensure_track_mesh():
         "SliderTrackData",
         lambda mesh: _fill_ring_mesh(
             mesh, TRACK_LENGTH / 2, TRACK_WIDTH / 2, TRACK_OUTLINE_THICKNESS,
-            AXIS_IDX['Y'], AXIS_IDX['X'],
+            AXIS_IDX['Y'], AXIS_IDX['X'], TRACK_CORNER_RADIUS,
         ),
     )
 
@@ -161,7 +269,7 @@ def _ensure_pad_track_mesh():
         "SliderPadTrackData",
         lambda mesh: _fill_ring_mesh(
             mesh, PAD_SIZE / 2, PAD_SIZE / 2, TRACK_OUTLINE_THICKNESS,
-            AXIS_IDX['Y'], AXIS_IDX['X'],
+            AXIS_IDX['Y'], AXIS_IDX['X'], TRACK_CORNER_RADIUS,
         ),
     )
 

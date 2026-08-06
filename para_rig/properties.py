@@ -44,6 +44,28 @@ class TargetBinding(PropertyGroup):
     max_val: FloatProperty(name="Max Value", default=1.0)
     invert: BoolProperty(name="Invert", default=False)
 
+    # 上一次rig_builder.add_driver()成功建立driver時,實際使用的目標欄位
+    # 快照(內部欄位,不在UI顯示)。存在的理由:remove_driver()必須知道
+    # 「原本綁在哪裡」才拆得掉driver,但使用者隨時可以在建立driver之後
+    # 改上面那幾個即時欄位(target_object/data_name/bone_name等),改完
+    # 之後即時欄位已經指向新目標,沒有任何辦法回推舊目標——只有這份改動
+    # 前留下的快照知道。沒有這份快照的話,改綁目標會讓舊目標上的driver
+    # 永久殘留成孤兒,連Clear都清不掉(真實踩過的bug,不是預防性寫法)。
+    #
+    # bound_target_object用PointerProperty(不是存物件名稱字串)——物件被
+    # 改名時PointerProperty會自動跟著,存名稱字串則會在改名後對不上而
+    # 找不到要拆的driver,等於又繞回同一個孤兒問題。
+    #
+    # bound_target_type/bound_bone_axis刻意用StringProperty而不是跟即時
+    # 欄位一樣的EnumProperty:這兩個欄位純粹是內部快照,不需要UI下拉選單,
+    # 而且空字串(EnumProperty沒有這個狀態)正好可以表示「目前沒有任何
+    # 已知綁定」,不用另外開一個布林旗標維護同一件事。
+    bound_target_type: StringProperty(default="")
+    bound_target_object: PointerProperty(type=bpy.types.Object)
+    bound_data_name: StringProperty(default="")
+    bound_bone_name: StringProperty(default="")
+    bound_bone_axis: StringProperty(default="")
+
 
 def get_binding(item, axis_index):
     """回傳item.target_bindings第axis_index筆,不夠長就自動補到有(新增

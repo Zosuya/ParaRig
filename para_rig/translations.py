@@ -84,6 +84,10 @@ _ZH_HANT = {
     "(No Group Assigned)": "(未指定分組)",
     # properties.py - SliderRigItem fields
     "Slider Name": "滑桿名稱",
+    # 註:這個msgid同時也是N面板「分組」頁籤按鈕的文字(見__init__.py的
+    # slider_rig_active_page)。Blender核心翻譯目錄本身已經有"Group"的
+    # zh_HANT譯文(「群組」,來自Vertex Groups等內建功能),實際顯示時會
+    # 蓋過這裡登記的「分組」——語意相近,刻意接受,不另外造複合字迴避。
     "Group": "分組",
     "Grid X": "橫向格子座標",
     "The top-left grid coordinate (horizontal) of this control's occupied area; larger values are "
@@ -148,8 +152,12 @@ _ZH_HANT = {
     "Show Columns": "顯示欄位",
     "ParaRig": "ParaRig 自動生成",
     "Update Slider Rig": "更新滑桿綁定",
-    "Groups": "分組 (Groups)",
     "Sliders": "滑桿",
+    # slider_rig_active_page兩個選項的description(見__init__.py)。頁籤
+    # 按鈕本身的文字用"Group"/"Sliders"這兩個msgid,前者見上面的說明。
+    "Show group settings and the Groups list": "顯示分組設定與分組清單",
+    "Show slider settings and the Sliders list": "顯示滑桿設定與滑桿清單",
+    "Active Page": "目前頁面",
     "Show Sliders From All Groups": "顯示所有分組的滑桿",
     "Text Size": "文字大小",
     "Target settings not initialized yet — please refresh the panel": "目標設定尚未初始化,請重新整理面板",

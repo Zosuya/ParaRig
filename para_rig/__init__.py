@@ -1,7 +1,7 @@
 bl_info = {
     "name": "ParaRig",
     "author": "Zosuya",
-    "version": (0, 1, 1),
+    "version": (1, 0, 0),
     "blender": (4, 2, 0),
     "location": "View3D > N-Panel > ParaRig",
     "description": "Auto-generates draggable slider controls and binds them via Drivers to "
@@ -11,7 +11,7 @@ bl_info = {
 }
 
 import bpy
-from bpy.props import CollectionProperty, IntProperty, BoolProperty
+from bpy.props import CollectionProperty, IntProperty, BoolProperty, EnumProperty
 
 from . import icons
 from . import preferences
@@ -41,6 +41,27 @@ def register():
     bpy.types.Scene.slider_rig_index = IntProperty(default=0)
     bpy.types.Scene.slider_groups = CollectionProperty(type=properties.SliderGroupItem)
     bpy.types.Scene.slider_group_index = IntProperty(default=0)
+    # N面板分成「分組」/「滑桿」兩頁,靠這個欄位切換目前顯示哪一頁——
+    # 兩頁共用同一個Panel.draw(),不是Blender原生的分頁機制(那需要各自
+    # 獨立的bl_category/獨立的N面板頁籤),單純是draw()裡的if/else,狀態
+    # 存在scene層級(不是window_manager),原因跟其他既有UI狀態
+    # (slider_rig_show_all_groups等)一致:切換場景、存檔重開,使用者
+    # 上次停留的頁面預期會被記住,不是每次都跳回預設頁。
+    # "Group"/"Groups"這兩個字,Blender自己的核心翻譯目錄(不是這個addon
+    # 的翻譯表)已經有zh_HANT翻譯("群組",來自Vertex Groups等內建功能)——
+    # 跟這個addon翻譯表裡任何登記同一個msgid的譯文撞在一起時,查表結果會
+    # 被Blender核心翻譯目錄蓋過去。這裡刻意不迴避這個撞碰,直接沿用
+    # "Group"這個字面值,讓zh_HANT使用者看到Blender核心目錄提供的「群組」
+    # ——語意上也算合理(這個頁籤本來就是在管理「分組」這件事),不需要
+    # 為了避開撞碰另外造一個複合字。
+    bpy.types.Scene.slider_rig_active_page = EnumProperty(
+        name="Active Page",
+        items=[
+            ('GROUPS', 'Group', 'Show group settings and the Groups list'),
+            ('SLIDERS', 'Sliders', 'Show slider settings and the Sliders list'),
+        ],
+        default='GROUPS',
+    )
     bpy.types.Scene.slider_rig_show_all_groups = BoolProperty(
         name="Show Sliders From All Groups", default=False,
         description="When off, the slider list only shows sliders belonging to the group currently "
@@ -68,14 +89,25 @@ def unregister():
     # 註冊、翻譯表後註冊"的順序。
     translations.unregister()
 
+    # class(尤其是SLIDERRIG_PT_panel這個N面板)必須先卸載,再刪除下面這些
+    # Scene屬性——順序反過來的話,unregister_class()執行完成前這段空窗期
+    # 裡,Panel類別仍然註冊在Blender裡、隨時可能被UI系統排程重繪,但
+    # scene.slider_rig_items等屬性已經被del掉,draw()讀到不存在的屬性會
+    # 直接丟AttributeError(真實踩過:disable這個addon時在3D Viewport
+    # 重繪的呼叫堆疊裡炸開,伴隨VS Code除錯器中斷點使Blender整個卡死;
+    # 先在Pro版踩到,回頭確認免費版有一樣的bug)。這裡改成跟register()
+    # 對稱:register()是「先註冊class、後新增Scene屬性」,unregister()
+    # 理應反過來是「先移除Scene屬性依賴方(class)、後刪除Scene屬性本身」。
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+
     del bpy.types.Scene.slider_rig_show_col_data_name
     del bpy.types.Scene.slider_rig_show_col_target_object
     del bpy.types.Scene.slider_rig_show_col_group
     del bpy.types.Scene.slider_rig_show_all_groups
+    del bpy.types.Scene.slider_rig_active_page
     del bpy.types.Scene.slider_group_index
     del bpy.types.Scene.slider_groups
     del bpy.types.Scene.slider_rig_index
     del bpy.types.Scene.slider_rig_items
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
     icons.unregister()
