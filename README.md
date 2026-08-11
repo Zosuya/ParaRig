@@ -72,6 +72,7 @@ Whichever style you choose, as long as the control has a draggable axis, the "ta
 - **Target Type**: the kind of data to bind — Shape Key, custom property, or bone location.
 - **Target Object**: the object the data actually lives on. For a Shape Key, pick the mesh that owns it; for a bone location, pick the corresponding armature.
 - **Data Name**: the specific piece of data to drive. When the target type is Shape Key, this lists the target object's existing Shape Keys to choose from; for a custom property, type the property name manually; for a bone location, this becomes bone name and bone axis fields instead.
+- **Fill buttons**: the small icons to the right of the data name field pull in whatever is currently active in Blender, so you don't have to match names by hand. For a Shape Key target, they fill in the active object together with its active Shape Key (select the one you want in Blender's own Shape Keys panel first); for a bone location, they fill in the active armature and active bone (select the bone in Pose Mode or Edit Mode). If there's nothing usable selected you get a warning rather than silent failure.
 - **Min Value / Max Value**: the value range actually sent to the target data at each end of the drag travel.
 - **Invert**: flips the value range relative to the drag direction.
 
@@ -111,15 +112,6 @@ With the outline off, a small dot is left where the outline's top-left corner wo
 
 **I clicked "Clear Generated Sliders" but the controls weren't cleaned up properly.**
 All generated controls are placed in the "ParaRig" collection, so you can simply delete that entire collection to keep your data tidy.
-
-# Changelog
-### v1.0.0
-- First stable release. The core slider generation and Driver binding pipeline, the group system, checkerboard layout with the Edit Layout canvas, four control styles (vertical / horizontal / 2-axis / text label), name labels, and non-destructive updates are all complete and tested
-- Fixed orphaned Drivers being left behind on the old target after rebinding
-- Fixed the horizontal slider's drag direction: the minimum value / 0 is now on the left and the maximum on the right
-- With "Show Frame Outline" off, an origin marker is now drawn at the outline's former top-left corner so the group can still be selected in the 3D Viewport
-- The N-panel is now split into "Group" and "Sliders" pages; each row in the control list gained a style icon and a quick toggle for the name label
-- Rounded corners on tracks and Frame outlines, and adjusted name label spacing so it no longer overlaps the outline
 
 # License / Terms of Use
 ParaRig is licensed under **GPL-3.0-or-later**: you are free to use it (including commercially), modify it, and redistribute it — see [`LICENSE`](LICENSE) for the full terms.
