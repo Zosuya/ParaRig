@@ -1,7 +1,7 @@
 bl_info = {
     "name": "ParaRig",
     "author": "Zosuya",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (4, 2, 0),
     "location": "View3D > N-Panel > ParaRig",
     "description": "Auto-generates draggable slider controls and binds them via Drivers to "

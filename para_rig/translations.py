@@ -134,6 +134,12 @@ _ZH_HANT = {
     "Auto-generates slider controls and Drivers from the list data": "依照清單資料自動生成滑桿控制器與Driver",
     "Clear Generated Sliders": "清除已生成的滑桿",
     "Deletes all generated slider objects (Drivers are removed as well)": "刪除所有已生成的滑桿物件(Driver會一併移除)",
+    "Fill Selected Shape Key": "填入選中的形態鍵",
+    "Fills Target Object and Shape Key from the currently active object's active shape key":
+        "從目前作用中物件的作用中形態鍵,填入目標物件與形態鍵",
+    "Fill Selected Bone": "填入選中的骨骼",
+    "Fills Target Object and Bone Name from the currently active armature's active bone":
+        "從目前作用中骨架的作用中骨骼,填入目標物件與骨骼名稱",
     # operators.py - self.report() messages (含模板)
     "Must be run inside the 3D Viewport": "請在3D Viewport裡執行",
     "Please select a group in the Groups list first": "請先在Groups清單裡選取一個分組",
@@ -145,8 +151,13 @@ _ZH_HANT = {
     "No target found for the following items — sliders were generated but Drivers were not bound: ":
         "以下項目找不到目標,已生成滑桿但未綁定Driver: ",
     "Generated {n} slider(s) and bound Drivers": "已生成 {n} 個滑桿並完成綁定",
+    "No active object with an active shape key": "沒有作用中的物件、或該物件沒有作用中的形態鍵",
+    "No active Armature object": "沒有作用中的Armature物件",
+    "No active bone (select one in Pose Mode or Edit Mode)":
+        "沒有作用中的骨骼(請在Pose Mode或Edit Mode選取一根骨骼)",
     # panels.py
     "Please specify an Armature object first": "請先指定Armature物件",
+    "Selected object has no Shape Keys": "選取的物體沒有任何形態鍵",
     "Select Group": "選擇分組",
     "No groups created yet": "尚未建立任何分組",
     "Show Columns": "顯示欄位",

@@ -342,7 +342,7 @@ def _text_width(text, size):
     不能寫死一個固定間距,標題文字內容/字級任何一個變動,寬度就會跟著變。"""
     font_id = 0
     blf.size(font_id, size)
-    w, _ = blf.dimensions(font_id, text)
+    w, _unused_h = blf.dimensions(font_id, text)
     return w
 
 
@@ -564,7 +564,18 @@ def draw_callback():
     # 名稱文字。正在拖曳中的item要畫在state["drag_target"](滑鼠當前對應
     # 的新位置),不是它自己的item.grid_x/grid_y——後者是資料庫裡還沒寫入
     # 的舊位置,拖曳過程中還沒變。
-    for item in group_items:
+    # 繪製順序固定依group_items(collection原本順序)逐一畫,後畫的疊在
+    # 先畫的上面——正在拖曳中的item如果照這個順序畫,疊放層級完全看它在
+    # collection裡排第幾,跟「正在被拖曳」這件事無關:拖到別的方塊上時,
+    # 有時候會被壓在下面、有時候蓋在上面,視覺上很混亂。修法是把拖曳中的
+    # item排到最後畫,不管它在collection裡原本排第幾,永遠確保它蓋在所有
+    # 其他方塊上面,符合「正在操作的東西應該在最前面」的直覺。
+    # 用same_item()比較而不是`is`——group_items每次draw都重新從collection
+    # 取出新的wrapper物件,`is`永遠False(見下方迴圈內既有的同一段說明)。
+    ordered_items = sorted(
+        group_items, key=lambda it: same_item(state["dragging"], it)
+    )
+    for item in ordered_items:
         # 不能用`state["dragging"] is item`——group_items是每次draw重新從
         # collection取出的新wrapper,is永遠False,拖曳中的item會被當成一般
         # item畫在舊位置,跟畫在新位置的預覽色矩形部分重疊,產生斷裂畫面。

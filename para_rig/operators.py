@@ -363,6 +363,134 @@ class SLIDERRIG_OT_align_frame_to_view(Operator):
         return {'FINISHED'}
 
 
+class SLIDERRIG_OT_binding_warning(Operator):
+    """不做任何事的no-op operator,唯一用途是讓UI畫得出「只有icon、滑鼠懸浮
+    才顯示說明文字」的警示。`layout.label(icon='ERROR')`雖然也能畫出icon,
+    但label在Blender裡沒有tooltip——要有懸浮說明就只能是operator按鈕,所以
+    這裡開一個什麼都不做的operator當載體。
+
+    警示文案由呼叫端用message property傳入、透過description()這個classmethod
+    動態回傳,讓同一個class可以服務不同的警示,不用每多一種文案就多開一個
+    operator。傳進來的是未翻譯的msgid(翻譯在description()裡才做),這樣
+    translations.py那份表不用為了這條路徑多收錄任何新字串。
+
+    畫的時候要搭配emboss=False(見panels.py),外觀就跟純icon的label一樣、
+    沒有按鈕外框;真的被點到時回CANCELLED,不產生undo步驟。"""
+    bl_idname = "sliderrig.binding_warning"
+    bl_label = "Warning"
+    bl_options = {'INTERNAL'}
+
+    message: bpy.props.StringProperty()
+
+    @classmethod
+    def description(cls, context, properties):
+        return _(properties.message)
+
+    def execute(self, context):
+        return {'CANCELLED'}
+
+
+class SLIDERRIG_OT_fill_from_active_shape_key(Operator):
+    """把目前選中滑桿項目target_bindings裡的其中一筆(依binding_index,
+    也就是軸索引),target_object/data_name一鍵填成「目前作用中物件
+    (bpy.context.object)身上目前選中的shape key」——使用者先在Blender
+    原生的Shape Keys面板點選好要用的key_block(或本來工作流程中已經選在
+    那裡的那一個),回到ParaRig面板點這顆按鈕就不用再手動選一次
+    target_object、然後在prop_search裡重新找一次shape key名稱,省去
+    重複點擊。
+
+    只在target_type=='SHAPE_KEY'時有意義(這顆按鈕只會畫在
+    _draw_target_binding的SHAPE_KEY分支旁邊,見panels.py),但這裡仍然
+    檢查target_type,防止萬一被其他路徑呼叫到時誤把骨骼/自訂屬性
+    binding的data_name蓋成shape key名稱。active_object或
+    active_shape_key不存在時(使用者還沒選取任何物件,或選取的物件
+    沒有shape keys)報warning並取消,不靜默失敗。"""
+    bl_idname = "sliderrig.fill_from_active_shape_key"
+    bl_label = "Fill Selected Shape Key"
+    bl_description = "Fills Target Object and Shape Key from the currently active object's active shape key"
+    bl_options = {'INTERNAL'}
+
+    binding_index: bpy.props.IntProperty()
+
+    def execute(self, context):
+        obj = context.object
+        if obj is None or obj.active_shape_key is None:
+            self.report({'WARNING'}, _("No active object with an active shape key"))
+            return {'CANCELLED'}
+
+        scene = context.scene
+        items = scene.slider_rig_items
+        idx = scene.slider_rig_index
+        if not (0 <= idx < len(items)):
+            return {'CANCELLED'}
+        bindings = items[idx].target_bindings
+        if not (0 <= self.binding_index < len(bindings)):
+            return {'CANCELLED'}
+
+        binding = bindings[self.binding_index]
+        if binding.target_type != 'SHAPE_KEY':
+            return {'CANCELLED'}
+        binding.target_object = obj
+        binding.data_name = obj.active_shape_key.name
+        return {'FINISHED'}
+
+
+class SLIDERRIG_OT_fill_from_active_bone(Operator):
+    """把目前選中滑桿項目target_bindings裡的其中一筆(binding_index同
+    SLIDERRIG_OT_fill_from_active_shape_key),target_object/bone_name
+    一鍵填成「目前作用中的骨架物件+目前作用中的骨骼」——跟Shape Key版
+    同一個省去重複點擊的目的,差別是骨骼的「目前選中哪一個」在Pose
+    Mode跟Edit Mode是兩個不同的context屬性(active_pose_bone/
+    active_bone),這裡依context.object.mode分別讀,涵蓋使用者在任一種
+    模式下選骨骼的情況。Object Mode(或其他模式)下兩者都是None,視為
+    「沒有作用中骨骼」處理。
+
+    只在target_type=='BONE_LOC'時有意義(這顆按鈕只畫在
+    _draw_target_binding的BONE_LOC分支旁邊),仍然檢查target_type防止
+    誤把其他類型binding的欄位蓋掉,理由同Shape Key版。active_object
+    不是Armature或沒有作用中骨骼時報warning並取消,不靜默失敗。"""
+    bl_idname = "sliderrig.fill_from_active_bone"
+    bl_label = "Fill Selected Bone"
+    bl_description = "Fills Target Object and Bone Name from the currently active armature's active bone"
+    bl_options = {'INTERNAL'}
+
+    binding_index: bpy.props.IntProperty()
+
+    def execute(self, context):
+        obj = context.object
+        if obj is None or obj.type != 'ARMATURE':
+            self.report({'WARNING'}, _("No active Armature object"))
+            return {'CANCELLED'}
+
+        if obj.mode == 'POSE':
+            active_bone = context.active_pose_bone
+            bone_name = active_bone.name if active_bone else None
+        elif obj.mode == 'EDIT':
+            active_bone = context.active_bone
+            bone_name = active_bone.name if active_bone else None
+        else:
+            bone_name = None
+        if not bone_name:
+            self.report({'WARNING'}, _("No active bone (select one in Pose Mode or Edit Mode)"))
+            return {'CANCELLED'}
+
+        scene = context.scene
+        items = scene.slider_rig_items
+        idx = scene.slider_rig_index
+        if not (0 <= idx < len(items)):
+            return {'CANCELLED'}
+        bindings = items[idx].target_bindings
+        if not (0 <= self.binding_index < len(bindings)):
+            return {'CANCELLED'}
+
+        binding = bindings[self.binding_index]
+        if binding.target_type != 'BONE_LOC':
+            return {'CANCELLED'}
+        binding.target_object = obj
+        binding.bone_name = bone_name
+        return {'FINISHED'}
+
+
 class SLIDERRIG_OT_generate(Operator):
     bl_idname = "sliderrig.generate"
     bl_label = "Generate Slider Rig"
@@ -582,6 +710,9 @@ classes = (
     SLIDERRIG_OT_remove_group,
     SLIDERRIG_OT_move_group,
     SLIDERRIG_OT_align_frame_to_view,
+    SLIDERRIG_OT_binding_warning,
+    SLIDERRIG_OT_fill_from_active_shape_key,
+    SLIDERRIG_OT_fill_from_active_bone,
     SLIDERRIG_OT_generate,
     SLIDERRIG_OT_clear,
 )

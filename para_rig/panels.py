@@ -75,6 +75,20 @@ def _target_object_names(item):
 
 
 
+def _binding_data_label(binding):
+    """回傳這一筆binding在清單「資料名稱」欄要顯示的字串,沒設定回傳「—」。
+
+    BONE_LOC要連軸向一起顯示(`brow.L.Y`),不能跟其他類型一樣只讀
+    data_name——骨骼類型根本不使用data_name這個欄位(骨骼名稱存在
+    bone_name、軸向存在bone_axis),照舊只讀data_name的話這一欄對所有
+    BONE_LOC項目永遠顯示「—」,看起來像資料遺失(真實bug)。加上軸向是
+    因為同一根骨骼的X/Y/Z是三個不同的驅動目標,只顯示骨骼名稱的話兩筆
+    看起來會一模一樣。"""
+    if binding.target_type == 'BONE_LOC':
+        return f"{binding.bone_name}.{binding.bone_axis}" if binding.bone_name else "—"
+    return binding.data_name if binding.data_name else "—"
+
+
 def _data_names(item):
     axes = rig_builder.axes_for(item.control_style)
     if not axes:
@@ -82,8 +96,8 @@ def _data_names(item):
     names = []
     for i in range(len(axes)):
         binding = properties.peek_binding(item, i)
-        if binding and binding.data_name:
-            names.append(binding.data_name)
+        if binding:
+            names.append(_binding_data_label(binding))
         else:
             names.append("—")
     return names
@@ -132,26 +146,64 @@ class SLIDERRIG_UL_items(UIList):
         return flags, []
 
 
-def _draw_target_binding(layout, binding):
+def _draw_target_binding(layout, binding, binding_index):
     """畫一組完整的目標綁定設定(目標類型→目標物件→依類型分支的bone/
     shape key欄位→數值範圍→反轉)。抽成獨立函式是因為1D樣式只需要畫一次
     (對item.target_bindings[0]),XY_2D需要對[0]、[1]各畫一次、分別放進
     「X軸目標」「Y軸目標」兩個區塊——同一段UI邏輯,只是呼叫次數/對象不同,
-    不應該複製貼上兩份。"""
+    不應該複製貼上兩份。
+
+    binding_index是這筆binding在item.target_bindings裡的位置(等同軸索引,
+    這個版本每一軸固定對應collection的同一個位置)——「從作用中骨骼/形態鍵
+    填入」兩顆按鈕(sliderrig.fill_from_active_bone/
+    .fill_from_active_shape_key)需要知道要寫入哪一筆。"""
     layout.prop(binding, "target_type")
     layout.prop(binding, "target_object")
 
     if binding.target_type == 'BONE_LOC':
+        # 填入按鈕做成純icon、跟主要欄位同一行,不另外佔一整行文字按鈕,
+        # 節省細節框的垂直空間(hover時仍看得到bl_description的說明文字)。
+        row = layout.row(align=True)
         if binding.target_object and binding.target_object.type == 'ARMATURE':
-            layout.prop_search(binding, "bone_name", binding.target_object.pose, "bones")
+            row.prop_search(binding, "bone_name", binding.target_object.pose, "bones")
         else:
-            layout.label(text=_("Please specify an Armature object first"), icon='ERROR')
+            row.label(text=_("Please specify an Armature object first"), icon='ERROR')
+        row.operator(
+            "sliderrig.fill_from_active_bone",
+            text="", icon='BONE_DATA',
+        ).binding_index = binding_index
         layout.prop(binding, "bone_axis")
     elif binding.target_type == 'SHAPE_KEY':
+        row = layout.row(align=True)
         if binding.target_object and binding.target_object.data and getattr(binding.target_object.data, "shape_keys", None):
-            layout.prop_search(binding, "data_name", binding.target_object.data.shape_keys, "key_blocks", text="Shape Key")
+            row.prop_search(binding, "data_name", binding.target_object.data.shape_keys, "key_blocks", text="Shape Key")
+        elif binding.target_object is not None:
+            # 物件存在但沒有任何形態鍵時,明確顯示ERROR提示,不要無聲降級成
+            # 純文字欄位——修正前這個分支會默默把prop_search換成純文字輸入,
+            # 畫面上完全沒有任何說明,使用者選到Camera/Light/Empty或選到
+            # 「支援形態鍵但還沒建立任何形態鍵」的物件都會遇到,卻不知道
+            # 發生了什麼事。
+            #
+            # 這裡跟BONE_LOC分支不同,不畫成帶文字的label:BONE_LOC出錯時
+            # label是「取代」欄位(整行只有這一個元素,文字有整行的寬度可用),
+            # 這裡的錯誤提示卻是跟data_name欄位和填入按鈕「並存」在同一行,
+            # 三個元素擠一行的結果是提示文字被截斷成「Selected o...hape Keys」,
+            # 反而看不懂。改成只畫ERROR icon、說明文字移到滑鼠懸浮的tooltip,
+            # 一行的寬度就留給真正要輸入的data_name欄位。
+            # icon要有tooltip就只能是operator不能是label(見operators.py的
+            # SLIDERRIG_OT_binding_warning),emboss=False讓它看起來就是個
+            # 純icon、沒有按鈕外框。
+            row.operator(
+                "sliderrig.binding_warning",
+                text="", icon='ERROR', emboss=False,
+            ).message = "Selected object has no Shape Keys"
+            row.prop(binding, "data_name")
         else:
-            layout.prop(binding, "data_name")
+            row.prop(binding, "data_name")
+        row.operator(
+            "sliderrig.fill_from_active_shape_key",
+            text="", icon='SHAPEKEY_DATA',
+        ).binding_index = binding_index
     else:
         layout.prop(binding, "data_name")
 
@@ -342,7 +394,7 @@ def _draw_sliders_page(layout, scene):
             if len(axes) == 1:
                 binding = properties.peek_binding(item, 0)
                 if binding is not None:
-                    _draw_target_binding(box, binding)
+                    _draw_target_binding(box, binding, 0)
                 else:
                     box.label(text=_("Target settings not initialized yet — please refresh the panel"), icon='INFO')
             else:
@@ -352,7 +404,7 @@ def _draw_sliders_page(layout, scene):
                     abox.label(text=_("{axis} Axis Target").format(axis=axis))
                     binding = properties.peek_binding(item, i)
                     if binding is not None:
-                        _draw_target_binding(abox, binding)
+                        _draw_target_binding(abox, binding, i)
                     else:
                         abox.label(text=_("Target settings not initialized yet — please refresh the panel"), icon='INFO')
 
