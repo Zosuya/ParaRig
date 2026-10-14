@@ -1,0 +1,2 @@
+# commit-msg hook 是 sh 腳本,換成 CRLF 會讓 shebang 失效
+.githooks/* text eol=lf
