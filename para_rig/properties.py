@@ -3,7 +3,7 @@
 import bpy
 from bpy.props import (
     StringProperty, FloatProperty, EnumProperty, PointerProperty, BoolProperty, IntProperty,
-    CollectionProperty,
+    CollectionProperty, BoolVectorProperty, FloatVectorProperty,
 )
 from bpy.types import PropertyGroup
 
@@ -66,6 +66,100 @@ class TargetBinding(PropertyGroup):
     bound_bone_name: StringProperty(default="")
     bound_bone_axis: StringProperty(default="")
 
+    # Bone Location的「單骨三軸」(v1.2.0):同一根骨骼的X/Y/Z可以各自勾選、
+    # 各自一組範圍,一支滑桿同時驅動。只限同一根骨骼——「多根骨骼」是Pro版
+    # 的一對多binding,免費版刻意不開放。
+    #
+    # 舊版(v1.1.0以前)的單軸設定存在上面的bone_axis+min_val/max_val,這兩組
+    # 欄位保留不刪:
+    # - min_val/max_val仍是Shape Key/自訂屬性的範圍欄位
+    # - bone_axis+min_val/max_val是舊檔遷移的來源(見migrate_binding),
+    #   而且存檔前會被sync_legacy_bone_fields()寫回「第一個勾選的軸」——
+    #   Pro版不認得這組新欄位,用Pro打開免費版的檔案時至少還保得住一軸
+    bone_axes_enabled: BoolVectorProperty(
+        name="Bone Axes", size=3, default=(False, True, False),
+        description="Which local axes of the bone this slider moves",
+    )
+    bone_axis_min: FloatVectorProperty(
+        name="Min Value", size=3, default=(0.0, 0.0, 0.0),
+        description="Bone location on this axis when the slider is at its minimum",
+    )
+    bone_axis_max: FloatVectorProperty(
+        name="Max Value", size=3, default=(1.0, 1.0, 1.0),
+        description="Bone location on this axis when the slider is at its maximum",
+    )
+    # 0 = v1.1.0以前建立、還沒遷移的binding;1 = 新格式。新建的binding在
+    # get_binding()裡直接設成1——不能靠預設值,否則新建的binding下次開檔
+    # 會被當成舊資料再遷移一次,蓋掉使用者的勾選(spike實測過這個情境)。
+    bone_axes_version: IntProperty(default=0)
+
+
+_AXIS_INDEX = {'X': 0, 'Y': 1, 'Z': 2}
+
+
+def bone_axes_string(binding):
+    """目前勾選的軸組成的字串(例如"XZ"),沒勾任何軸回傳空字串。給driver
+    解析/快照(bound_bone_axis)跟清單顯示共用。"""
+    return "".join(c for c, on in zip("XYZ", binding.bone_axes_enabled) if on)
+
+
+def first_bone_axis_range(binding):
+    """回傳第一個勾選軸的(min, max),沒勾任何軸回傳None。"""
+    for i, on in enumerate(binding.bone_axes_enabled):
+        if on:
+            return binding.bone_axis_min[i], binding.bone_axis_max[i]
+    return None
+
+
+def migrate_binding(binding):
+    """把v1.1.0以前的單軸設定(bone_axis+min_val/max_val)轉成三軸欄位:只勾
+    原本那一軸,範圍照抄。已經是新格式(bone_axes_version>=1)的不動。不分
+    target_type一律轉——非骨骼類型的binding之後被切換成Bone Location時,
+    看到的就是舊版切換過去會看到的同一組軸向/範圍,行為跟舊版一致。
+    回傳是否真的有轉換。"""
+    if binding.bone_axes_version >= 1:
+        return False
+    idx = _AXIS_INDEX.get(binding.bone_axis, 1)
+    lo = list(binding.bone_axis_min)
+    hi = list(binding.bone_axis_max)
+    lo[idx] = binding.min_val
+    hi[idx] = binding.max_val
+    binding.bone_axes_enabled = tuple(i == idx for i in range(3))
+    binding.bone_axis_min = lo
+    binding.bone_axis_max = hi
+    binding.bone_axes_version = 1
+    return True
+
+
+def migrate_all_scenes():
+    """所有場景、所有滑桿的binding都跑一次migrate_binding,回傳轉換筆數。
+    只能在可寫入ID資料的時機呼叫(load_post handler、timer),不能在
+    register()當下(那時bpy.data是_RestrictData)。"""
+    count = 0
+    for scene in bpy.data.scenes:
+        for item in getattr(scene, "slider_rig_items", ()):
+            for binding in item.target_bindings:
+                count += migrate_binding(binding)
+    return count
+
+
+def sync_legacy_bone_fields():
+    """存檔前把每筆Bone Location binding的「第一個勾選軸」寫回舊欄位
+    (bone_axis+min_val/max_val)。免費版自己不讀這組舊欄位(遷移完成後),
+    純粹是給Pro版看的:Pro的TargetBinding沒有三軸欄位,用Pro打開免費版的
+    檔案時讀的是舊欄位,寫回之後至少保得住一軸,不會整筆變成預設值。"""
+    for scene in bpy.data.scenes:
+        for item in getattr(scene, "slider_rig_items", ()):
+            for binding in item.target_bindings:
+                if binding.target_type != 'BONE_LOC' or binding.bone_axes_version < 1:
+                    continue
+                for i, on in enumerate(binding.bone_axes_enabled):
+                    if on:
+                        binding.bone_axis = "XYZ"[i]
+                        binding.min_val = binding.bone_axis_min[i]
+                        binding.max_val = binding.bone_axis_max[i]
+                        break
+
 
 def get_binding(item, axis_index):
     """回傳item.target_bindings第axis_index筆,不夠長就自動補到有(新增
@@ -80,7 +174,8 @@ def get_binding(item, axis_index):
     建立時)和`_on_control_style_changed`(切換樣式需要更多軸時),不是
     面板讀取的當下。"""
     while len(item.target_bindings) <= axis_index:
-        item.target_bindings.add()
+        new_binding = item.target_bindings.add()
+        new_binding.bone_axes_version = 1  # 新格式,不需要遷移(見bone_axes_version)
     return item.target_bindings[axis_index]
 
 

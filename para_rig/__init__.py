@@ -1,7 +1,7 @@
 bl_info = {
     "name": "ParaRig",
     "author": "Zosuya",
-    "version": (1, 1, 0),
+    "version": (1, 2, 0),
     "blender": (4, 2, 0),
     "location": "View3D > N-Panel > ParaRig",
     "description": "Auto-generates draggable slider controls and binds them via Drivers to "
@@ -11,6 +11,7 @@ bl_info = {
 }
 
 import bpy
+from bpy.app.handlers import persistent
 from bpy.props import CollectionProperty, IntProperty, BoolProperty, EnumProperty
 
 from . import icons
@@ -22,8 +23,43 @@ from . import translations
 
 classes = preferences.classes + properties.classes + operators.classes + panels.classes
 
+# 免費版跟ParaRig Pro共用同一組內部名稱(operator的sliderrig.*、Scene上的
+# slider_rig_items等)——這是刻意的:免費版做的.blend用Pro打開,滑桿資料會
+# 直接出現,升級不用重做。代價是兩個不能同時啟用(會互相覆蓋operator、
+# 停用其中一個會把另一個正在用的Scene屬性一起刪掉),所以啟用前先檢查
+# 對方的N面板類別是不是已經註冊,有的話直接拒絕啟用並說明原因。
+CONFLICT_MESSAGE = (
+    "ParaRig and ParaRig Pro cannot be enabled at the same time. "
+    "Please disable the other one first. "
+    "(ParaRig 與 ParaRig Pro 不能同時啟用,請先停用另一個)"
+)
+
+
+@persistent
+def _on_load_post(_unused):
+    # 開檔時把v1.1.0以前的單軸Bone Location設定轉成三軸格式(見
+    # properties.migrate_binding)。
+    properties.migrate_all_scenes()
+
+
+@persistent
+def _on_save_pre(_unused):
+    # 存檔前把第一個勾選軸寫回舊欄位,給Pro版讀(見
+    # properties.sync_legacy_bone_fields)。
+    properties.sync_legacy_bone_fields()
+
+
+def _migrate_after_register():
+    # 外掛在檔案打開之後才啟用時,load_post不會觸發,改由這個timer補跑一次。
+    # 不能直接在register()裡跑——那時bpy.data是_RestrictData,不能寫入。
+    properties.migrate_all_scenes()
+    return None  # 只跑一次
+
 
 def register():
+    if hasattr(bpy.types, "SLIDERRIG_PT_panel"):
+        raise RuntimeError(CONFLICT_MESSAGE)
+
     # icons.register()要在其他東西之前跑——control_style的EnumProperty用
     # 動態items callback(icons.control_style_enum_items())取縮圖icon_value,
     # 這個callback實際被呼叫的時間點雖然是UI真的要畫出來才觸發(不是
@@ -74,6 +110,10 @@ def register():
     bpy.types.Scene.slider_rig_show_col_target_object = BoolProperty(name="Target Object", default=True)
     bpy.types.Scene.slider_rig_show_col_data_name = BoolProperty(name="Data Name", default=True)
 
+    bpy.app.handlers.load_post.append(_on_load_post)
+    bpy.app.handlers.save_pre.append(_on_save_pre)
+    bpy.app.timers.register(_migrate_after_register, first_interval=0.0)
+
 
 def unregister():
     # 排布編輯畫布(modal operator)可能還開著就被disable/reload——先清掉
@@ -84,6 +124,13 @@ def unregister():
     # 重新載入的時機沒有嚴格順序保證,頂層import曾經在reload過程中抓到
     # 尚未更新完的operators模組物件,導致ImportError。
     operators.SLIDERRIG_OT_edit_grid_layout.remove_handle_if_active()
+
+    if _on_load_post in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(_on_load_post)
+    if _on_save_pre in bpy.app.handlers.save_pre:
+        bpy.app.handlers.save_pre.remove(_on_save_pre)
+    if bpy.app.timers.is_registered(_migrate_after_register):
+        bpy.app.timers.unregister(_migrate_after_register)
 
     # 翻譯表要在unregister_class之前先卸載,對稱於register()裡"class先
     # 註冊、翻譯表後註冊"的順序。

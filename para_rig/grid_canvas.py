@@ -172,7 +172,7 @@ def update_origin(region_width, region_height):
     「每幀刷新」時機點,讓cell_px在使用者執行期間調整Blender偏好設定裡
     的UI Scale時也能跟著即時反映,不用重新開啟編輯排版才生效。"""
     state["cell_px"] = DEFAULT_CELL_PX * ui_scale()
-    _, window_rows = window_dims()
+    _unused_cols, window_rows = window_dims()
     grid_px_h = window_rows * state["cell_px"]
     origin_x = region_width / 4
     origin_y = region_height * 3 / 4 - grid_px_h

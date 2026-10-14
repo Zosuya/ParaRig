@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "para_rig"
-version = "1.1.0"
+version = "1.2.0"
 name = "ParaRig"
 tagline = "Auto-generate draggable slider rigs and Driver bindings"
 maintainer = "Zosuya <pararig@zusuya.cc>"

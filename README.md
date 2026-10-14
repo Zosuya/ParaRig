@@ -71,9 +71,9 @@ To cover a variety of binding needs, ParaRig offers four different control style
 Whichever style you choose, as long as the control has a draggable axis, the "target settings" that expand underneath are the same common set of fields:
 - **Target Type**: the kind of data to bind — Shape Key, custom property, or bone location.
 - **Target Object**: the object the data actually lives on. For a Shape Key, pick the mesh that owns it; for a bone location, pick the corresponding armature.
-- **Data Name**: the specific piece of data to drive. When the target type is Shape Key, this lists the target object's existing Shape Keys to choose from; for a custom property, type the property name manually; for a bone location, this becomes bone name and bone axis fields instead.
+- **Data Name**: the specific piece of data to drive. When the target type is Shape Key, this lists the target object's existing Shape Keys to choose from; for a custom property, type the property name manually; for a bone location, this becomes a bone name field plus X / Y / Z axis rows instead — tick any combination of the bone's local axes, and each ticked axis gets its own Min / Max, so one slider can move a bone diagonally (for example X 0 → 0.1 together with Z 0 → -0.2).
 - **Fill buttons**: the small icons to the right of the data name field pull in whatever is currently active in Blender, so you don't have to match names by hand. For a Shape Key target, they fill in the active object together with its active Shape Key (select the one you want in Blender's own Shape Keys panel first); for a bone location, they fill in the active armature and active bone (select the bone in Pose Mode or Edit Mode). If there's nothing usable selected you get a warning rather than silent failure.
-- **Min Value / Max Value**: the value range actually sent to the target data at each end of the drag travel.
+- **Min Value / Max Value**: the value range actually sent to the target data at each end of the drag travel (for a bone location, each axis row has its own pair).
 - **Invert**: flips the value range relative to the drag direction.
 
 #### 1-Axis Slider (Vertical / Horizontal)
@@ -112,6 +112,9 @@ With the outline off, a small dot is left where the outline's top-left corner wo
 
 **I clicked "Clear Generated Sliders" but the controls weren't cleaned up properly.**
 All generated controls are placed in the "ParaRig" collection, so you can simply delete that entire collection to keep your data tidy.
+
+**Can ParaRig and ParaRig Pro be enabled at the same time?**
+No. They share the same internal names (which is why files made with the free version open in Pro with their sliders intact), so running both would make them interfere with each other. If one is already enabled, enabling the other shows a message asking you to disable the first one.
 
 # License / Terms of Use
 ParaRig is licensed under **GPL-3.0-or-later**: you are free to use it (including commercially), modify it, and redistribute it — see [`LICENSE`](LICENSE) for the full terms.

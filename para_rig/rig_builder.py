@@ -54,8 +54,11 @@ def _resolve_driver_target_fields(target_type, target_object, data_name, bone_na
         pbone = obj.pose.bones.get(bone_name)
         if not pbone:
             return None
-        axis_idx = {'X': 0, 'Y': 1, 'Z': 2}[bone_axis]
-        return pbone, "location", axis_idx
+        # bone_axis是勾選軸組成的字串("XZ"),所以這個分支回傳的array_index
+        # 是list(每個勾選軸一條driver),不是單一int——呼叫端(add_driver/
+        # remove_driver)要分開處理。v1.1.0存下的快照是單一字母("Y"),照樣
+        # 解析成只有一個元素的list。
+        return pbone, "location", [{'X': 0, 'Y': 1, 'Z': 2}[c] for c in bone_axis if c in "XYZ"]
 
     return None
 
@@ -69,7 +72,7 @@ def resolve_driver_target(binding):
     函式的說明),不要在remove_driver()裡誤用這個。"""
     return _resolve_driver_target_fields(
         binding.target_type, binding.target_object, binding.data_name,
-        binding.bone_name, binding.bone_axis,
+        binding.bone_name, properties.bone_axes_string(binding),
     )
 
 
@@ -99,7 +102,7 @@ def _snapshot_bound_driver_target(binding):
     binding.bound_target_object = binding.target_object
     binding.bound_data_name = binding.data_name
     binding.bound_bone_name = binding.bone_name
-    binding.bound_bone_axis = binding.bone_axis
+    binding.bound_bone_axis = properties.bone_axes_string(binding)
 
 
 def _clear_bound_driver_snapshot(binding):
@@ -285,7 +288,14 @@ def _initial_axis_offset(binding, travel):
     方向)時回傳0(Track中心),不強行猜測。"""
     if binding is None:
         return 0.0
-    lo, hi = binding.min_val, binding.max_val
+    if binding.target_type == 'BONE_LOC':
+        # 三軸各自有範圍,Handle只有一個起始位置——以第一個勾選軸為準。
+        first = properties.first_bone_axis_range(binding)
+        if first is None:
+            return 0.0
+        lo, hi = first
+    else:
+        lo, hi = binding.min_val, binding.max_val
     if lo == hi:
         return 0.0
     neutral = 0.0 if lo < 0.0 < hi else (lo if abs(lo) <= abs(hi) else hi)
@@ -867,37 +877,22 @@ def remove_driver(binding):
     target = _resolve_bound_driver_target(binding)
     if target is not None:
         id_data, data_path, array_index = target
-        try:
-            if array_index == -1:
-                id_data.driver_remove(data_path)
-            else:
-                id_data.driver_remove(data_path, array_index)
-        except Exception:
-            pass
+        indices = array_index if isinstance(array_index, list) else [array_index]
+        for index in indices:
+            try:
+                if index == -1:
+                    id_data.driver_remove(data_path)
+                else:
+                    id_data.driver_remove(data_path, index)
+            except Exception:
+                pass
     _clear_bound_driver_snapshot(binding)
 
 
-def add_driver(binding, empty, transform_type, travel):
-    """幫binding(一筆TargetBinding)在empty(Handle)的transform_type軸上
-    綁一個SCRIPTED driver,把Handle在[-travel, travel]的局部座標線性映射到
-    [binding.min_val, binding.max_val](invert時交換)。transform_type/travel
-    由呼叫端(bind_drivers)依item.control_style決定——1D樣式固定
-    transform_type='LOC_Y'、travel=HANDLE_TRAVEL;XY_2D兩軸分別用
-    'LOC_X'/'LOC_Y'、travel=PAD_TRAVEL(travel距離不一樣,不能沿用
-    HANDLE_TRAVEL寫死在算式裡,否則XY_2D的線性映射範圍會算錯)。"""
-    target = resolve_driver_target(binding)
-    if target is None:
-        # 即時欄位解析不出有效目標(例如target_object被清空)——仍然要
-        # 呼叫remove_driver()清掉「上一次」可能綁在別的目標上的舊driver,
-        # 不能因為新目標無效就放著舊driver不管,變成孤兒(見remove_driver
-        # 的說明)。
-        remove_driver(binding)
-        return False
-    id_data, data_path, array_index = target
-
-    # 先移除上一次實際綁定的舊driver(可能在別的目標上),避免重複/孤兒
-    remove_driver(binding)
-
+def _install_driver(id_data, data_path, array_index, empty, transform_type, travel, lo, hi, invert):
+    """在(id_data, data_path, array_index)建一條SCRIPTED driver,把Handle在
+    [-travel, travel]的局部座標線性映射到[lo, hi](invert時交換)。單一目標
+    跟Bone Location的每個勾選軸共用這一段,不重複寫兩份。"""
     if array_index == -1:
         fcurve = id_data.driver_add(data_path)
     else:
@@ -915,26 +910,64 @@ def add_driver(binding, empty, transform_type, travel):
     t.transform_type = transform_type
     t.transform_space = 'LOCAL_SPACE'
 
-    # Shape Key的value有自己的slider_min/slider_max(面板上那條滑桿的顯示
-    # 範圍,預設0~1),跟這裡的min_val/max_val是兩件不同的事:driver算出來的
-    # 值不會被slider_min/max限制(照樣能把value設到範圍外),只是Shape Key
-    # 面板上的滑桿看起來卡住不動,容易讓使用者誤以為驅動沒生效。這裡撐開
-    # (只放寬、不縮小,避免覆蓋使用者可能刻意設得更寬的範圍)slider_min/max
-    # 讓它至少能容納min_val/max_val,兩者才會一致。用未經invert交換的
-    # binding.min_val/max_val(真實數值範圍),不是下面拿去組表達式、可能已經
-    # 交換過的lo/hi。
-    if binding.target_type == 'SHAPE_KEY':
-        id_data.slider_min = min(id_data.slider_min, binding.min_val)
-        id_data.slider_max = max(id_data.slider_max, binding.max_val)
-
-    lo, hi = binding.min_val, binding.max_val
-    if binding.invert:
+    if invert:
         lo, hi = hi, lo
 
     # 把Handle在 [-travel, travel] 的位置線性映射到 [lo, hi]
     drv.expression = (
         f"(slider + {travel}) / {2 * travel} * ({hi} - ({lo})) + ({lo})"
     )
+
+
+def add_driver(binding, empty, transform_type, travel):
+    """幫binding(一筆TargetBinding)在empty(Handle)的transform_type軸上
+    綁一個SCRIPTED driver,把Handle在[-travel, travel]的局部座標線性映射到
+    [binding.min_val, binding.max_val](invert時交換;Bone Location則是每個
+    勾選軸各自一條driver、用bone_axis_min/max)。transform_type/travel
+    由呼叫端(bind_drivers)依item.control_style決定——1D樣式固定
+    transform_type='LOC_Y'、travel=HANDLE_TRAVEL;XY_2D兩軸分別用
+    'LOC_X'/'LOC_Y'、travel=PAD_TRAVEL(travel距離不一樣,不能沿用
+    HANDLE_TRAVEL寫死在算式裡,否則XY_2D的線性映射範圍會算錯)。"""
+    target = resolve_driver_target(binding)
+    if target is None:
+        # 即時欄位解析不出有效目標(例如target_object被清空)——仍然要
+        # 呼叫remove_driver()清掉「上一次」可能綁在別的目標上的舊driver,
+        # 不能因為新目標無效就放著舊driver不管,變成孤兒(見remove_driver
+        # 的說明)。
+        remove_driver(binding)
+        return False
+    id_data, data_path, array_index = target
+
+    # 先移除上一次實際綁定的舊driver(可能在別的目標上),避免重複/孤兒
+    remove_driver(binding)
+
+    if isinstance(array_index, list):
+        # Bone Location:每個勾選軸各自一條driver、各自一組範圍。一個軸都
+        # 沒勾視同綁定失敗(回傳False),讓generate的「找不到目標」警告
+        # 提醒使用者,不要無聲地生成一個什麼都不驅動的滑桿。round()是因為
+        # FloatVectorProperty是32位元,0.2會變成0.20000000298,寫進算式很難讀。
+        if not array_index:
+            return False
+        for index in array_index:
+            lo = round(binding.bone_axis_min[index], 6)
+            hi = round(binding.bone_axis_max[index], 6)
+            _install_driver(id_data, data_path, index, empty, transform_type, travel,
+                            lo, hi, binding.invert)
+        _snapshot_bound_driver_target(binding)
+        return True
+
+    # Shape Key的value有自己的slider_min/slider_max(面板上那條滑桿的顯示
+    # 範圍,預設0~1),跟這裡的min_val/max_val是兩件不同的事:driver算出來的
+    # 值不會被slider_min/max限制(照樣能把value設到範圍外),只是Shape Key
+    # 面板上的滑桿看起來卡住不動,容易讓使用者誤以為驅動沒生效。這裡撐開
+    # (只放寬、不縮小,避免覆蓋使用者可能刻意設得更寬的範圍)slider_min/max
+    # 讓它至少能容納min_val/max_val,兩者才會一致。
+    if binding.target_type == 'SHAPE_KEY':
+        id_data.slider_min = min(id_data.slider_min, binding.min_val)
+        id_data.slider_max = max(id_data.slider_max, binding.max_val)
+
+    _install_driver(id_data, data_path, array_index, empty, transform_type, travel,
+                    binding.min_val, binding.max_val, binding.invert)
 
     # driver確實建立完成後才存快照——之後使用者改target_object/data_name
     # 時,remove_driver()靠這份快照才知道要回去哪裡拆掉這個driver。

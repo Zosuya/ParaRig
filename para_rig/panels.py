@@ -83,9 +83,11 @@ def _binding_data_label(binding):
     bone_name、軸向存在bone_axis),照舊只讀data_name的話這一欄對所有
     BONE_LOC項目永遠顯示「—」,看起來像資料遺失(真實bug)。加上軸向是
     因為同一根骨骼的X/Y/Z是三個不同的驅動目標,只顯示骨骼名稱的話兩筆
-    看起來會一模一樣。"""
+    看起來會一模一樣。v1.2.0起一筆可以勾多軸,顯示成`brow.L.XZ`。"""
     if binding.target_type == 'BONE_LOC':
-        return f"{binding.bone_name}.{binding.bone_axis}" if binding.bone_name else "—"
+        if not binding.bone_name:
+            return "—"
+        return f"{binding.bone_name}.{properties.bone_axes_string(binding) or '—'}"
     return binding.data_name if binding.data_name else "—"
 
 
@@ -172,7 +174,21 @@ def _draw_target_binding(layout, binding, binding_index):
             "sliderrig.fill_from_active_bone",
             text="", icon='BONE_DATA',
         ).binding_index = binding_index
-        layout.prop(binding, "bone_axis")
+        # 單骨三軸:每個軸一行「軸向開關 + 該軸的Min/Max」,沒勾的軸範圍欄位
+        # 變灰(仍可編輯,方便先設好再勾)。共用的min_val/max_val行對骨骼類型
+        # 不畫——骨骼的範圍全部在這三行裡。
+        col = layout.column(align=True)
+        for i, axis_name in enumerate("XYZ"):
+            row = col.row(align=True)
+            row.prop(binding, "bone_axes_enabled", index=i, text=axis_name, toggle=True)
+            sub = row.row(align=True)
+            sub.active = binding.bone_axes_enabled[i]
+            sub.prop(binding, "bone_axis_min", index=i, text="Min")
+            sub.prop(binding, "bone_axis_max", index=i, text="Max")
+        if not any(binding.bone_axes_enabled):
+            col.label(text=_("Enable at least one axis"), icon='ERROR')
+        layout.prop(binding, "invert")
+        return
     elif binding.target_type == 'SHAPE_KEY':
         row = layout.row(align=True)
         if binding.target_object and binding.target_object.data and getattr(binding.target_object.data, "shape_keys", None):
